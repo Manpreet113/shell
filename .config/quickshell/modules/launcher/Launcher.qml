@@ -9,10 +9,15 @@ import QtQuick.Controls.Basic
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
+import Quickshell.Wayland
 import "../theme"
 
 PanelWindow {
     id: root
+
+    // Launcher should be on top of all windows and receive keyboard focus
+    focusable: true
+    WlrLayershell.layer: WlrLayer.Overlay
 
     // ─── Visibility state ────────────────────────────────────────────
     // Starts hidden; toggled by shell.qml's IpcHandler.
@@ -55,10 +60,13 @@ PanelWindow {
     property string appBuffer:    ""   // accumulates stdout from appLoader
 
     // Path to the Python script, resolved relative to this QML file
-    readonly property string listAppsScript:
-        Qt.resolvedUrl("../../scripts/list_apps.py")
-            .toString()
-            .replace("file://", "")
+    readonly property string listAppsScript: {
+        var url = Qt.resolvedUrl("../../scripts/list_apps.py").toString()
+        if (url.startsWith("file://")) {
+            return url.substring(7)
+        }
+        return url
+    }
 
     Process {
         id: appLoader

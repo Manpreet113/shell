@@ -14,9 +14,9 @@ Text {
     id: root
 
     // ── Primary approach: direct property binding ─────────────────────
-    // Quickshell tracks the focused client and updates this automatically.
+    // Hyprland.activeToplevel is the standard property in Quickshell 0.3+.
     text:  {
-        var title = Hyprland.focusedClient?.title ?? "~"
+        var title = Hyprland.activeToplevel ? Hyprland.activeToplevel.title : "~"
         return title.length > 44 ? title.slice(0, 42) + "…" : title
     }
 

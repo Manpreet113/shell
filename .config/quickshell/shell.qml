@@ -13,7 +13,8 @@ ShellRoot {
     id: root
 
     // ─── Home directory (read from $HOME at startup) ─────────────────
-    // Used to locate ~/.config/shell/colors.json
+    // Used to locate COLORS_DIR="$HOME/.config/quickshell"
+    // COLORS_FILE="$COLORS_DIR/colors.json"
     property string homeDir: ""
 
     Process {
@@ -28,16 +29,49 @@ ShellRoot {
     // ─── Matugen color watcher ───────────────────────────────────────
     // When wallpaper.sh runs matugen and writes colors.json,
     // this FileView detects the change and pushes new colors into Theme.
+    readonly property string colorFilePath: {
+        var url = Qt.resolvedUrl("colors.json").toString()
+        if (url.startsWith("file://")) return url.substring(7)
+        return url
+    }
+
     FileView {
         id: colorFile
-        path: root.homeDir ? root.homeDir + "/.config/shell/colors.json" : ""
-        onTextChanged: {
-            if (!text || text.length < 2) return
+        path: root.colorFilePath
+        watchChanges: true
+        onFileChanged: {
+            catProcess.rawJson = ""
+            catProcess.running = true
+        }
+    }
+
+    Process {
+        id: catProcess
+        property string rawJson: ""
+        command: ["cat", root.colorFilePath]
+        stdout: SplitParser {
+            onRead: data => catProcess.rawJson += data
+        }
+        onExited: {
+            debounceTimer.data = rawJson
+            debounceTimer.restart()
+        }
+    }
+
+    Timer {
+        id: debounceTimer
+        property string data: ""
+        interval: 10
+        repeat: false
+        onTriggered: {
+            if (data.length < 10) return
             try {
-                var data = JSON.parse(text)
-                Theme.apply(data.colors.dark)
+                var json = JSON.parse(data)
+                if (json.colors) {
+                    Theme.apply(json)
+                }
             } catch (e) {
-                console.warn("[shell] Failed to parse colors.json:", e)
+                console.warn("[shell] JSON parse error: " + e)
             }
         }
     }
@@ -52,7 +86,12 @@ ShellRoot {
 
     // ─── Application launcher ────────────────────────────────────────
     // Single instance, toggled via IPC or Super+Space keybind
+    WallpaperSelector { id: wallpaperSelector }
+
+    // ─── Application launcher ────────────────────────────────────────
+    // Single instance, toggled via IPC or Super+Space keybind
     Launcher { id: launcher }
+
 
     // ─── IPC handler ─────────────────────────────────────────────────
     // Hyprland keybind calls: qs ipc call shell toggleLauncher
@@ -61,5 +100,21 @@ ShellRoot {
         function toggleLauncher(): void {
             launcher.toggle()
         }
+
+        function toggleWallpaperSelector(): void {
+            wallpaperSelector.toggle()
+        }
     }
+
+    Timer {
+        id: startupTimer
+        interval: 200
+        repeat: false
+        onTriggered: {
+            catProcess.rawJson = ""
+            catProcess.running = true
+        }
+    }
+
+    Component.onCompleted: startupTimer.start()
 }

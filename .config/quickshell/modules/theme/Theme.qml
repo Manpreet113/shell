@@ -34,16 +34,41 @@ QtObject {
     // ─── apply() — called by shell.qml when colors.json is updated ───
     // Accepts the `colors.dark` sub-object from matugen's JSON output.
     // Keys follow matugen's snake_case naming (e.g., on_surface_variant).
-    function apply(dark) {
-        if (!dark) return
-        if (dark.surface)             surface          = dark.surface
-        if (dark.surface_variant)     surfaceVariant   = dark.surface_variant
-        if (dark.surface_container)   surfaceContainer = dark.surface_container
-        if (dark.on_surface)          fg               = dark.on_surface
-        if (dark.on_surface_variant)  fgMuted          = dark.on_surface_variant
-        if (dark.outline)             outline          = dark.outline
-        if (dark.primary)             primary          = dark.primary
-        if (dark.on_primary)          primaryFg        = dark.on_primary
-        if (dark.primary_container)   primaryContainer = dark.primary_container
+    function apply(data) {
+        if (!data || !data.colors) {
+            console.warn("[theme] ERROR: Received invalid data object")
+            return
+        }
+        
+        const colors = data.colors
+        const mode = data.mode || "dark"
+        console.warn("[theme] Applying theme update (mode: " + mode + ")")
+        
+        try {
+            // Helper to safely extract and convert color
+            const get = (key) => {
+                if (colors[key] && colors[key][mode] && colors[key][mode].color) {
+                    var c = colors[key][mode].color
+                    return Qt.color(c)
+                }
+                return null
+            }
+
+            // Assign properties directly
+            var c;
+            if ((c = get("surface")))          surface = c
+            if ((c = get("surface_variant")))  surfaceVariant = c
+            if ((c = get("surface_container"))) surfaceContainer = c
+            if ((c = get("on_surface")))       fg = c
+            if ((c = get("on_surface_variant"))) fgMuted = c
+            if ((c = get("outline")))          outline = c
+            if ((c = get("primary")))          primary = c
+            if ((c = get("on_primary")))       primaryFg = c
+            if ((c = get("primary_container"))) primaryContainer = c
+            
+            console.warn("[theme] Theme update complete!")
+        } catch (e) {
+            console.warn("[theme] CRASH during apply: " + e)
+        }
     }
 }

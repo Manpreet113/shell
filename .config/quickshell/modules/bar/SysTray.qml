@@ -31,7 +31,7 @@ RowLayout {
     }
 
     Timer {
-        interval: 2000; running: true; repeat: true
+        interval: 200; running: true; repeat: true
         triggeredOnStart: true
         onTriggered: { if (!volProc.running) volProc.running = true }
     }
@@ -58,7 +58,7 @@ RowLayout {
     }
 
     Timer {
-        interval: 12000; running: true; repeat: true
+        interval: 5000; running: true; repeat: true
         triggeredOnStart: true
         onTriggered: { if (!netProc.running) netProc.running = true }
     }
@@ -69,11 +69,15 @@ RowLayout {
 
     Process {
         id: batProc
-        // Reads /sys/class/power_supply/BAT*/capacity (integer 0-100).
-        // Outputs nothing if no battery found (desktop machines).
+        // Reads /sys/class/power_supply/BAT*/capacity and status.
+        // Adds a '+' prefix if the status is "Charging".
         command: ["sh", "-c",
             "f=$(ls /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -1); " +
-            "[ -f \"$f\" ] && printf 'BAT %s%%' \"$(cat $f)\" || true"
+            "if [ -f \"$f\" ]; then " +
+            "  s=$(cat \"${f%/capacity}/status\"); " +
+            "  [ \"$s\" = \"Charging\" ] && p='+' || p=''; " +
+            "  printf 'BAT %s%s%%' \"$p\" \"$(cat $f)\"; " +
+            "fi"
         ]
         stdout: SplitParser {
             onRead: data => root.batText = data.trim()
@@ -81,7 +85,7 @@ RowLayout {
     }
 
     Timer {
-        interval: 30000; running: true; repeat: true
+        interval: 10000; running: true; repeat: true
         triggeredOnStart: true
         onTriggered: { if (!batProc.running) batProc.running = true }
     }
