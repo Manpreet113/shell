@@ -6,7 +6,7 @@ clipse
 python3              
 kitty                
 thunar               
-grimblast            
+grimblast-git           
 playerctl            
 brightnessctl        
 pactl                
