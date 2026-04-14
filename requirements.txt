@@ -14,5 +14,5 @@ zenity
 jq                   
 pavucontrol         
 nm-connection-editor
-fonts-inter          
-fonts-roboto-mono    
+inter-font          
+ttf-roboto-mono-nerd   
