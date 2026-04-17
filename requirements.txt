@@ -5,8 +5,7 @@ matugen
 clipse               
 python3              
 kitty                
-thunar               
-grimblast-git           
+thunar                  
 playerctl            
 brightnessctl        
 pactl                
