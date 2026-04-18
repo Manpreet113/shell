@@ -420,8 +420,7 @@ PanelWindow {
                             visible: !root.notifier || root.notifier.history.length === 0
                             text: "No recent notifications"
                             color: Theme.fgMuted; font.family: Theme.uiFont; font.pixelSize: 13
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.verticalCenter: parent.verticalCenter
+                            topPadding: 40
                         }
 
                         ListView {

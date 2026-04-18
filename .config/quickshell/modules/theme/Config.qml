@@ -19,6 +19,7 @@ QtObject {
     readonly property int wallpaperGridCellHeight: 128
     readonly property string wallpaperDir: "~/Pictures/wallpapers"
 
+    readonly property int controlCenterWidth: 340
     readonly property int controlCenterBottomOffset: 68
 
     readonly property int dashboardWidth: 920
