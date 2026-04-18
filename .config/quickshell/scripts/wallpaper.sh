@@ -9,9 +9,9 @@
 #
 # What this does:
 #   1. Lets you pick or specify a wallpaper image
-#   2. Sets it with awww (animated transition)
+#   2. Sets it with swww (animated transition)
 #   3. Runs matugen to generate Material You colors from the image
-#   4. Writes ~/.config/shell/colors.json
+#   4. Writes ~/.config/quickshell/colors.json
 #   5. shell.qml's FileView detects the change and recolors everything live
 
 set -euo pipefail
@@ -54,7 +54,7 @@ if command -v awww &>/dev/null; then
         --transition-pos   center \
         --transition-duration 1.2 \
         --transition-fps   60 \
-    && echo "Wallpaper set via swww."
+    && echo "Wallpaper set via awww."
 elif command -v hyprpaper &>/dev/null; then
     hyprctl hyprpaper wallpaper ",$IMAGE" 2>/dev/null \
     && echo "Wallpaper set via hyprpaper."
@@ -64,7 +64,7 @@ elif command -v swaybg &>/dev/null; then
     echo "Wallpaper set via swaybg."
 else
     echo "Warning: no wallpaper setter found."
-    echo "Install swww (recommended):  sudo dnf install swww  or  yay -S swww"
+    echo "Install awww (recommended):  sudo dnf install awww  or  yay -S awww"
 fi
 
 # ── Step 3: Generate colors with matugen ─────────────────────────────────────

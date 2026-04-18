@@ -15,114 +15,167 @@ RowLayout {
 
     // ─── Volume ──────────────────────────────────────────────────────
     property string volText: "VOL --"
+    property bool volMuted: false
 
     Process {
         id: volProc
-        // wpctl (WirePlumber) is standard on modern Fedora/Arch with PipeWire.
-        // It prints: "Volume: 0.65" — we multiply by 100 and round.
         command: ["sh", "-c",
-            "wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null " +
-            "| awk '{printf \"%d%%\", $2 * 100}' " +
-            "|| echo '--'"
+            "wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | " +
+            "awk '/MUTED/ {print \"VOL MUTED\"; next} {printf \"VOL %d%%\\n\", $2 * 100}'"
         ]
         stdout: SplitParser {
-            onRead: data => root.volText = "VOL " + data.trim()
+            onRead: data => {
+                root.volText = data.trim()
+                root.volMuted = root.volText.indexOf("MUTED") !== -1
+            }
         }
     }
 
     Timer {
-        interval: 200; running: true; repeat: true
+        interval: 1500; running: true; repeat: true
         triggeredOnStart: true
         onTriggered: { if (!volProc.running) volProc.running = true }
     }
 
     // ─── Network ─────────────────────────────────────────────────────
     property string netText: "NET --"
+    property bool netOnline: false
 
     Process {
         id: netProc
-        // Try WiFi SSID first; fall back to any active connection name.
         command: ["sh", "-c",
-            "ssid=$(nmcli -t -f active,ssid dev wifi 2>/dev/null " +
-            "       | grep '^yes:' | cut -d: -f2 | head -1); " +
-            "[ -n \"$ssid\" ] && echo \"$ssid\" && exit 0; " +
-            "nmcli -t -f name con show --active 2>/dev/null " +
-            "| head -1 || echo 'offline'"
+            "conn=$(nmcli -t -f TYPE,STATE,CONNECTION device status 2>/dev/null " +
+            "| awk -F: '$2==\"connected\" {print $1\":\"$3; exit}'); " +
+            "if [ -z \"$conn\" ]; then echo 'NET OFF'; exit 0; fi; " +
+            "type=${conn%%:*}; name=${conn#*:}; " +
+            "case \"$type\" in " +
+            "wifi) printf 'WIFI %s\\n' \"$name\" ;; " +
+            "ethernet) printf 'ETH %s\\n' \"$name\" ;; " +
+            "*) printf 'NET %s\\n' \"$name\" ;; " +
+            "esac"
         ]
         stdout: SplitParser {
             onRead: data => {
                 var name = data.trim()
-                root.netText = name.length > 14 ? name.slice(0, 13) + "…" : name
+                root.netText = name.length > 18 ? name.slice(0, 17) + "…" : name
+                root.netOnline = root.netText !== "NET OFF"
             }
         }
     }
 
     Timer {
-        interval: 5000; running: true; repeat: true
+        interval: 15000; running: true; repeat: true
         triggeredOnStart: true
         onTriggered: { if (!netProc.running) netProc.running = true }
     }
 
     // ─── Battery ─────────────────────────────────────────────────────
-    // Will be empty on desktops — those Text items are hidden via visible:
     property string batText: ""
+    property bool batCharging: false
+    property bool batWarning: false
 
     Process {
         id: batProc
-        // Reads /sys/class/power_supply/BAT*/capacity and status.
-        // Adds a '+' prefix if the status is "Charging".
         command: ["sh", "-c",
             "f=$(ls /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -1); " +
             "if [ -f \"$f\" ]; then " +
+            "  cap=$(cat \"$f\"); " +
             "  s=$(cat \"${f%/capacity}/status\"); " +
-            "  [ \"$s\" = \"Charging\" ] && p='+' || p=''; " +
-            "  printf 'BAT %s%s%%' \"$p\" \"$(cat $f)\"; " +
+            "  case \"$s\" in " +
+            "    Charging) st='CHG' ;; " +
+            "    Full) st='FULL' ;; " +
+            "    Not\\ charging) st='IDLE' ;; " +
+            "    *) st='DIS' ;; " +
+            "  esac; " +
+            "  printf 'BAT %s%% %s\\n' \"$cap\" \"$st\"; " +
             "fi"
         ]
         stdout: SplitParser {
-            onRead: data => root.batText = data.trim()
+            onRead: data => {
+                root.batText = data.trim()
+                root.batCharging = root.batText.indexOf("CHG") !== -1
+                var match = root.batText.match(/BAT (\d+)%/)
+                var level = match ? parseInt(match[1], 10) : 100
+                root.batWarning = root.batText.length > 0 && !root.batCharging && level <= 15
+            }
+        }
+    }
+
+    // ─── System load ──────────────────────────────────────────────────
+    property string loadText: "LOAD --"
+
+    Process {
+        id: loadProc
+        command: ["sh", "-c",
+            "load=$(cut -d' ' -f1 /proc/loadavg 2>/dev/null); " +
+            "cores=$(nproc 2>/dev/null); " +
+            "awk -v l=\"$load\" -v c=\"$cores\" 'BEGIN { " +
+            "if (l == \"\" || c == \"\" || c == 0) print \"LOAD --\"; " +
+            "else printf \"LOAD %d%%\\n\", (l / c) * 100 }'"
+        ]
+        stdout: SplitParser {
+            onRead: data => root.loadText = data.trim()
         }
     }
 
     Timer {
         interval: 10000; running: true; repeat: true
         triggeredOnStart: true
+        onTriggered: { if (!loadProc.running) loadProc.running = true }
+    }
+
+    // ─── Memory ───────────────────────────────────────────────────────
+    property string memText: "RAM --"
+
+    Process {
+        id: memProc
+        command: ["sh", "-c",
+            "free | awk '/Mem:/ {printf \"RAM %d%%\\n\", ($3 / $2) * 100}'"
+        ]
+        stdout: SplitParser {
+            onRead: data => root.memText = data.trim()
+        }
+    }
+
+    Timer {
+        interval: 10000; running: true; repeat: true
+        triggeredOnStart: true
+        onTriggered: { if (!memProc.running) memProc.running = true }
+    }
+
+    Timer {
+        interval: 30000; running: true; repeat: true
+        triggeredOnStart: true
         onTriggered: { if (!batProc.running) batProc.running = true }
     }
 
     // ─── Render ──────────────────────────────────────────────────────
-
-    Text {
-        text:           root.volText
-        color:          Theme.fgMuted
-        font.family:    Theme.monoFont
-        font.pixelSize: 12
+    StatusPill {
+        labelText: root.loadText
+        muted: true
     }
 
-    Text {
-        text: "·"; color: Theme.outline
-        font.family: Theme.monoFont; font.pixelSize: 12
+    StatusPill {
+        labelText: root.memText
+        muted: true
     }
 
-    Text {
-        text:           root.netText
-        color:          Theme.fgMuted
-        font.family:    Theme.monoFont
-        font.pixelSize: 12
+    StatusPill {
+        labelText: root.netText
+        emphasized: root.netOnline
     }
 
-    // Battery separator + value — hidden on desktops without a battery
-    Text {
-        visible:        root.batText.length > 0
-        text:           "·"; color: Theme.outline
-        font.family:    Theme.monoFont; font.pixelSize: 12
+    StatusPill {
+        labelText: root.volText
+        warning: root.volMuted
+        muted: !root.volMuted
     }
 
-    Text {
-        visible:        root.batText.length > 0
-        text:           root.batText
-        color:          Theme.fgMuted
-        font.family:    Theme.monoFont
-        font.pixelSize: 12
+    StatusPill {
+        visible: root.batText.length > 0
+        labelText: root.batText
+        emphasized: root.batCharging
+        warning: root.batWarning
+        muted: !root.batCharging && !root.batWarning
     }
 }

@@ -20,6 +20,8 @@ QtObject {
     property color fg:                  "#e2e2e2"   // primary text  (was onSurface)
     property color fgMuted:             "#9e9e9e"   // secondary text (was onSurfaceVariant)
     property color outline:             "#3a3a3a"   // borders, separators, dots
+    property color error:               "#ffb4ab"
+    property color errorContainer:      "#5c1d18"
 
     // ─── Accent ──────────────────────────────────────────────────────
     property color primary:             "#c8b3fa"   // active workspace, highlights
@@ -36,16 +38,14 @@ QtObject {
     // Keys follow matugen's snake_case naming (e.g., on_surface_variant).
     function apply(data) {
         if (!data || !data.colors) {
-            console.warn("[theme] ERROR: Received invalid data object")
+            console.warn("[theme] Received invalid theme payload")
             return
         }
-        
+
         const colors = data.colors
         const mode = data.mode || "dark"
-        console.warn("[theme] Applying theme update (mode: " + mode + ")")
-        
+
         try {
-            // Helper to safely extract and convert color
             const get = (key) => {
                 if (colors[key] && colors[key][mode] && colors[key][mode].color) {
                     var c = colors[key][mode].color
@@ -62,13 +62,13 @@ QtObject {
             if ((c = get("on_surface")))       fg = c
             if ((c = get("on_surface_variant"))) fgMuted = c
             if ((c = get("outline")))          outline = c
+            if ((c = get("error")))            error = c
+            if ((c = get("error_container")))  errorContainer = c
             if ((c = get("primary")))          primary = c
             if ((c = get("on_primary")))       primaryFg = c
             if ((c = get("primary_container"))) primaryContainer = c
-            
-            console.warn("[theme] Theme update complete!")
         } catch (e) {
-            console.warn("[theme] CRASH during apply: " + e)
+            console.warn("[theme] Failed to apply theme: " + e)
         }
     }
 }

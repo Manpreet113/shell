@@ -10,6 +10,7 @@ import json
 import os
 import glob
 import re
+import shlex
 
 SEARCH_DIRS = [
     "/usr/share/applications",
@@ -54,12 +55,34 @@ def parse_desktop_file(path: str) -> dict | None:
     if not name or not exec_cmd or no_display:
         return None
 
-    # Strip desktop-entry field codes (%f, %F, %u, %U, …)
-    exec_cmd = re.sub(r"\s*%[a-zA-Z]", "", exec_cmd).strip()
-    # Strip surrounding quotes if any
-    exec_cmd = exec_cmd.strip('"').strip("'")
+    exec_cmd = normalize_exec(exec_cmd)
 
     return {"name": name, "exec": exec_cmd} if exec_cmd else None
+
+
+def normalize_exec(exec_cmd: str) -> str:
+    """Convert Exec= into a safely re-quoted shell command."""
+    exec_cmd = re.sub(r"(?<!%)%%", "%", exec_cmd).strip()
+
+    try:
+        tokens = shlex.split(exec_cmd, posix=True)
+    except ValueError:
+        tokens = exec_cmd.split()
+
+    cleaned: list[str] = []
+    for token in tokens:
+        if re.fullmatch(r"%[a-zA-Z]", token):
+            continue
+
+        token = re.sub(r"(?<!%)%[a-zA-Z]", "", token)
+        token = token.replace("%%", "%").strip()
+        if token:
+            cleaned.append(token)
+
+    if not cleaned:
+        return ""
+
+    return shlex.join(cleaned)
 
 
 def main():

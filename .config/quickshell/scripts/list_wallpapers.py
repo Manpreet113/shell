@@ -2,12 +2,15 @@
 import json
 import os
 import glob
+import sys
 
-WALLPAPER_DIR = os.path.expanduser("~/Pictures/wallpapers")
+DEFAULT_WALLPAPER_DIR = "~/Pictures/wallpapers"
 EXTENSIONS = ["*.jpg", "*.jpeg", "*.png", "*.webp", "*.bmp"]
 
 def main():
-    if not os.path.exists(WALLPAPER_DIR):
+    wallpaper_dir = os.path.expanduser(sys.argv[1] if len(sys.argv) > 1 else DEFAULT_WALLPAPER_DIR)
+
+    if not os.path.exists(wallpaper_dir):
         print("[]")
         return
 
@@ -15,7 +18,7 @@ def main():
     for ext in EXTENSIONS:
         # Check both lowercase and uppercase extensions
         for pattern in (ext, ext.upper()):
-            for path in glob.glob(os.path.join(WALLPAPER_DIR, pattern)):
+            for path in glob.glob(os.path.join(wallpaper_dir, pattern)):
                 name = os.path.basename(path)
                 wallpapers.append({
                     "name": name,

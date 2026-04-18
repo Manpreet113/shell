@@ -12,20 +12,6 @@ import "modules/launcher"
 ShellRoot {
     id: root
 
-    // ─── Home directory (read from $HOME at startup) ─────────────────
-    // Used to locate COLORS_DIR="$HOME/.config/quickshell"
-    // COLORS_FILE="$COLORS_DIR/colors.json"
-    property string homeDir: ""
-
-    Process {
-        id: homeQuery
-        command: ["sh", "-c", "echo \"$HOME\""]
-        running: true
-        stdout: SplitParser {
-            onRead: data => root.homeDir = data.trim()
-        }
-    }
-
     // ─── Matugen color watcher ───────────────────────────────────────
     // When wallpaper.sh runs matugen and writes colors.json,
     // this FileView detects the change and pushes new colors into Theme.
@@ -39,10 +25,7 @@ ShellRoot {
         id: colorFile
         path: root.colorFilePath
         watchChanges: true
-        onFileChanged: {
-            catProcess.rawJson = ""
-            catProcess.running = true
-        }
+        onFileChanged: root.reloadColors()
     }
 
     Process {
@@ -56,6 +39,14 @@ ShellRoot {
             debounceTimer.data = rawJson
             debounceTimer.restart()
         }
+    }
+
+    function reloadColors() {
+        if (catProcess.running)
+            return
+
+        catProcess.rawJson = ""
+        catProcess.running = true
     }
 
     Timer {
@@ -110,10 +101,7 @@ ShellRoot {
         id: startupTimer
         interval: 200
         repeat: false
-        onTriggered: {
-            catProcess.rawJson = ""
-            catProcess.running = true
-        }
+        onTriggered: root.reloadColors()
     }
 
     Component.onCompleted: startupTimer.start()

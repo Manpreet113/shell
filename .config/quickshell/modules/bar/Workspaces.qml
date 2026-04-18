@@ -10,7 +10,7 @@ import "../theme"
 
 RowLayout {
     id: root
-    spacing: 4
+    spacing: 6
 
     Repeater {
         // Hyprland.workspaces is a live model — updates as workspaces open/close
@@ -25,15 +25,19 @@ RowLayout {
                 Hyprland.focusedMonitor.activeWorkspace !== null &&
                 Hyprland.focusedMonitor.activeWorkspace.id === modelData.id
 
-            implicitWidth:  label.implicitWidth + 14
-            implicitHeight: 22
+            implicitWidth:  label.implicitWidth + 20
+            implicitHeight: 28
 
-            // Subtle pill behind the active workspace
             Rectangle {
                 anchors.fill: parent
-                radius:       4
-                color:        Theme.primaryContainer
-                visible:      parent.isActive
+                radius:       height / 2
+                color: parent.isActive
+                       ? Qt.rgba(Theme.primaryContainer.r, Theme.primaryContainer.g, Theme.primaryContainer.b, 0.95)
+                       : Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.8)
+                border.width: 1
+                border.color: parent.isActive
+                            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.45)
+                            : Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.3)
 
                 Behavior on color { ColorAnimation { duration: 150 } }
             }

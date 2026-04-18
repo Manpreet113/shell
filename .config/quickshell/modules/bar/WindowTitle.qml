@@ -10,20 +10,36 @@ import QtQuick
 import Quickshell.Hyprland
 import "../theme"
 
-Text {
+Rectangle {
     id: root
 
-    // ── Primary approach: direct property binding ─────────────────────
-    // Hyprland.activeToplevel is the standard property in Quickshell 0.3+.
-    text:  {
+    property string titleText: {
         var title = Hyprland.activeToplevel ? Hyprland.activeToplevel.title : "~"
         return title.length > 44 ? title.slice(0, 42) + "…" : title
     }
 
-    color:          Theme.fgMuted
-    font.family:    Theme.monoFont
-    font.pixelSize: 12
-    elide:          Text.ElideRight
+    implicitHeight: 28
+    implicitWidth: Math.min(titleTextItem.implicitWidth + 24, 340)
+    radius: implicitHeight / 2
+    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.74)
+    border.width: 1
+    border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.28)
+
+    Text {
+        id: titleTextItem
+        anchors {
+            left: parent.left
+            leftMargin: 12
+            right: parent.right
+            rightMargin: 12
+            verticalCenter: parent.verticalCenter
+        }
+        text: root.titleText
+        color: Theme.fgMuted
+        font.family: Theme.monoFont
+        font.pixelSize: 12
+        elide: Text.ElideRight
+    }
 
     // ── Fallback: event-based approach ───────────────────────────────
     // Uncomment this block and comment out the `text: {...}` above
