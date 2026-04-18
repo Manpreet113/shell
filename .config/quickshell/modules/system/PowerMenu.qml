@@ -29,22 +29,27 @@ PanelWindow {
     ]
 
     readonly property var selectedItem: items[selectedIndex]
-
-    readonly property var overlayScreen: {
-        return ScreenUtil.focusedScreen()
-    }
+    readonly property var overlayScreen: ScreenUtil.focusedScreen()
 
     screen: overlayScreen
     anchors { top: true; right: true; left: true; bottom: true }
 
+    onVisibleChanged: {
+        if (visible)
+            menuFocus.forceActiveFocus()
+    }
+
     function toggle() {
-        if (visible) closeMenu()
-        else openMenu()
+        if (visible)
+            closeMenu()
+        else
+            openMenu()
     }
 
     function openMenu() {
         visible = true
         selectedIndex = 0
+        menuFocus.forceActiveFocus()
     }
 
     function closeMenu() {
@@ -69,28 +74,10 @@ PanelWindow {
             Hyprland.dispatch("exec qs -p ~/.config/quickshell ipc call shell powerAction shutdown")
     }
 
-    Rectangle {
+    FocusScope {
+        id: menuFocus
         anchors.fill: parent
-        color: "#000000"
-        opacity: 0.72
-
-        MouseArea {
-            anchors.fill: parent
-            onClicked: root.closeMenu()
-        }
-    }
-
-    Rectangle {
-        id: card
-        anchors.centerIn: parent
-        width: 640
-        radius: 28
-        color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.98)
-        border.width: 1
-        border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.18)
-        implicitHeight: content.implicitHeight + 36
-
-        MouseArea { anchors.fill: parent }
+        focus: true
 
         Keys.onPressed: event => {
             if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
@@ -108,99 +95,179 @@ PanelWindow {
             }
         }
 
-        ColumnLayout {
-            id: content
+        Rectangle {
             anchors.fill: parent
-            anchors.margins: 18
-            spacing: 16
+            color: "#000000"
+            opacity: 0.74
 
-            Text {
-                text: "POWER"
-                color: Theme.primary
-                font.family: Theme.monoFont
-                font.pixelSize: 11
-                font.letterSpacing: 4
-                Layout.alignment: Qt.AlignHCenter
+            MouseArea {
+                anchors.fill: parent
+                onClicked: root.closeMenu()
             }
+        }
 
-            Text {
-                Layout.fillWidth: true
-                text: root.selectedItem.label
-                color: Theme.fg
-                font.family: Theme.uiFont
-                font.pixelSize: 26
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-            }
+        Rectangle {
+            id: card
+            anchors.centerIn: parent
+            width: Math.min(760, parent.width - 48)
+            radius: 32
+            color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.96)
+            border.width: 1
+            border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.18)
+            implicitHeight: content.implicitHeight + 36
 
-            Text {
-                Layout.fillWidth: true
-                text: root.selectedItem.sublabel
-                color: Theme.fgMuted
-                font.family: Theme.uiFont
-                font.pixelSize: 13
-                horizontalAlignment: Text.AlignHCenter
-            }
+            MouseArea { anchors.fill: parent }
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 10
+            ColumnLayout {
+                id: content
+                anchors.fill: parent
+                anchors.margins: 22
+                spacing: 14
 
-                Repeater {
-                    model: root.items
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
 
-                    delegate: Rectangle {
-                        required property var modelData
-                        required property int index
-                        Layout.fillWidth: true
-                        implicitHeight: 132
-                        radius: 24
-                        color: root.selectedIndex === index
-                            ? Qt.rgba(Theme.primaryContainer.r, Theme.primaryContainer.g, Theme.primaryContainer.b, 0.96)
-                            : Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.6)
-                        border.width: 1
-                        border.color: root.selectedIndex === index
-                            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.42)
-                            : Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.16)
+                    ColumnLayout {
+                        spacing: 2
 
-                        ColumnLayout {
-                            anchors.centerIn: parent
-                            spacing: 4
-
-                            Text {
-                                text: modelData.label
-                                color: root.selectedIndex === index ? Theme.primary : Theme.fg
-                                font.family: Theme.uiFont
-                                font.pixelSize: 16
-                                font.bold: true
-                                Layout.alignment: Qt.AlignHCenter
-                            }
-
-                            Text {
-                                text: (index + 1).toString()
-                                color: Theme.fgMuted
-                                font.family: Theme.monoFont
-                                font.pixelSize: 11
-                                Layout.alignment: Qt.AlignHCenter
-                            }
+                        Text {
+                            text: "POWER"
+                            color: Theme.primary
+                            font.family: Theme.monoFont
+                            font.pixelSize: 11
+                            font.letterSpacing: 4
                         }
 
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onEntered: root.selectedIndex = index
-                            onClicked: root.invoke(modelData.id)
+                        Text {
+                            text: "Select an action"
+                            color: Theme.fgMuted
+                            font.family: Theme.uiFont
+                            font.pixelSize: 12
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        implicitWidth: hintText.implicitWidth + 18
+                        implicitHeight: 26
+                        radius: 13
+                        color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.62)
+                        border.width: 1
+                        border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.14)
+
+                        Text {
+                            id: hintText
+                            anchors.centerIn: parent
+                            text: "H/L or arrows"
+                            color: Theme.fgMuted
+                            font.family: Theme.monoFont
+                            font.pixelSize: 10
                         }
                     }
                 }
-            }
 
-            Text {
-                text: "LEFT RIGHT or H L to move  •  ENTER to confirm  •  ESC to close"
-                color: Theme.fgMuted
-                font.family: Theme.monoFont
-                font.pixelSize: 10
-                Layout.alignment: Qt.AlignHCenter
+                Text {
+                    Layout.fillWidth: true
+                    text: root.selectedItem.label
+                    color: Theme.fg
+                    font.family: Theme.uiFont
+                    font.pixelSize: 30
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: root.selectedItem.sublabel
+                    color: Theme.fgMuted
+                    font.family: Theme.uiFont
+                    font.pixelSize: 13
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Repeater {
+                        model: root.items
+
+                        delegate: Rectangle {
+                            required property var modelData
+                            required property int index
+                            Layout.fillWidth: true
+                            implicitHeight: root.selectedIndex === index ? 140 : 118
+                            radius: 24
+                            color: root.selectedIndex === index
+                                ? Qt.rgba(Theme.primaryContainer.r, Theme.primaryContainer.g, Theme.primaryContainer.b, 0.98)
+                                : Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.42)
+                            border.width: 1
+                            border.color: root.selectedIndex === index
+                                ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
+                                : Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.12)
+
+                            Behavior on color { ColorAnimation { duration: 120 } }
+                            Behavior on border.color { ColorAnimation { duration: 120 } }
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 8
+
+                                Rectangle {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    implicitWidth: 34
+                                    implicitHeight: 34
+                                    radius: 17
+                                    color: root.selectedIndex === index
+                                        ? Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.8)
+                                        : Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.48)
+                                    border.width: 1
+                                    border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.12)
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: (index + 1).toString()
+                                        color: root.selectedIndex === index ? Theme.primary : Theme.fgMuted
+                                        font.family: Theme.monoFont
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                    }
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.label
+                                    color: root.selectedIndex === index ? Theme.primary : Theme.fg
+                                    font.family: Theme.uiFont
+                                    font.pixelSize: 15
+                                    font.bold: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    visible: root.selectedIndex === index
+                                    text: modelData.sublabel
+                                    color: Theme.fgMuted
+                                    font.family: Theme.uiFont
+                                    font.pixelSize: 10
+                                    wrapMode: Text.WordWrap
+                                    horizontalAlignment: Text.AlignHCenter
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onEntered: root.selectedIndex = index
+                                onClicked: root.invoke(modelData.id)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
