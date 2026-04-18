@@ -18,3 +18,4 @@ ttf-roboto-mono-nerd
 gnome-keyring
 libsecret
 hyprpolkitagent
+sof-firmware
