@@ -21,6 +21,7 @@ PanelWindow {
 
     property var notifier: null
     property var powerMenu: null
+    property string configPath: ""
 
     property real volumePercent: 0
     property bool audioMuted: false
@@ -309,45 +310,31 @@ PanelWindow {
             Row {
                 width: parent.width; spacing: 8
 
-                // Screenshot
+                // Capture Utility
                 Rectangle {
-                    width: (parent.width - 16) / 3; height: 36; radius: 18
+                    width: (parent.width - 8) / 2; height: 36; radius: 18
                     color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.5)
                     border.width: 1; border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.06)
-                    Row { anchors.centerIn: parent; spacing: 6
-                        Text { text: "󰹑"; font.family: Theme.iconFont; font.pixelSize: 13; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
-                        Text { text: "Screen"; font.family: Theme.uiFont; font.pixelSize: 10; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
+                    Row { anchors.centerIn: parent; spacing: 8
+                        Text { text: "󰄀"; font.family: Theme.iconFont; font.pixelSize: 13; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                        Text { text: "Capture"; font.family: Theme.uiFont; font.pixelSize: 12; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
                     }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onClicked: { root.closePanel(); root.runShell("sleep 0.2 && grim -g \"$(slurp)\" - | wl-copy") }
-                    }
-                }
-
-                // Screenshot full
-                Rectangle {
-                    width: (parent.width - 16) / 3; height: 36; radius: 18
-                    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.5)
-                    border.width: 1; border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.06)
-                    Row { anchors.centerIn: parent; spacing: 6
-                        Text { text: "󰍹"; font.family: Theme.iconFont; font.pixelSize: 13; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
-                        Text { text: "Full"; font.family: Theme.uiFont; font.pixelSize: 10; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
-                    }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onClicked: { root.closePanel(); root.runShell("sleep 0.2 && grim - | wl-copy") }
+                        onClicked: { root.closePanel(); Hyprland.dispatch("exec qs -p " + root.configPath + " ipc call shell toggleScreenCapture") }
                     }
                 }
 
                 // Wallpaper
                 Rectangle {
-                    width: (parent.width - 16) / 3; height: 36; radius: 18
+                    width: (parent.width - 8) / 2; height: 36; radius: 18
                     color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.5)
                     border.width: 1; border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.06)
-                    Row { anchors.centerIn: parent; spacing: 6
+                    Row { anchors.centerIn: parent; spacing: 8
                         Text { text: "󰸉"; font.family: Theme.iconFont; font.pixelSize: 13; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
-                        Text { text: "Walls"; font.family: Theme.uiFont; font.pixelSize: 10; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
+                        Text { text: "Wallpaper"; font.family: Theme.uiFont; font.pixelSize: 12; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
                     }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onClicked: { root.closePanel(); Hyprland.dispatch("exec qs ipc call shell toggleWallpaperSelector") }
+                        onClicked: { root.closePanel(); Hyprland.dispatch("exec qs -p " + root.configPath + " ipc call shell toggleWallpaperSelector") }
                     }
                 }
             }

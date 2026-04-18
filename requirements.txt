@@ -19,3 +19,4 @@ gnome-keyring
 libsecret
 hyprpolkitagent
 sof-firmware
+hyprpicker

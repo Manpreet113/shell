@@ -13,6 +13,19 @@ ShellRoot {
     id: root
 
     ThemeLoader {}
+    
+    property string configPath: ""
+
+    Process {
+        command: ["sh", "-c", "realpath .config/quickshell"]
+        stdout: SplitParser {
+            onRead: data => { 
+                root.configPath = data.trim()
+                console.log("[Shell] Absolute Config Path:", root.configPath)
+            }
+        }
+        running: true
+    }
 
     // ─── Bar — spawned once per connected monitor ────────────────────
     Variants {
@@ -22,6 +35,7 @@ ShellRoot {
             controlCenter: controlCenter
             dashboard: dashboard
             notifier: notifications
+            configPath: root.configPath
         }
     }
 
@@ -34,11 +48,17 @@ ShellRoot {
         id: controlCenter
         notifier: notifications
         powerMenu: powerMenu
+        configPath: root.configPath
     }
 
     PowerMenu {
         id: powerMenu
         notifier: notifications
+    }
+
+    ScreenCapture {
+        id: screenCapture
+        configPath: root.configPath
     }
 
     NotificationOverlay {
@@ -60,6 +80,7 @@ ShellRoot {
         controlCenter: controlCenter
         dashboard: dashboard
         powerMenu: powerMenu
+        screenCapture: screenCapture
         notifications: notifications
     }
 
@@ -95,6 +116,10 @@ ShellRoot {
 
         function showOsd(text: string): void {
             shellCommands.showOsd(text)
+        }
+
+        function toggleScreenCapture(): void {
+            shellCommands.toggleScreenCapture()
         }
     }
 }

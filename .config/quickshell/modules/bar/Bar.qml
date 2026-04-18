@@ -15,6 +15,7 @@ PanelWindow {
     property var controlCenter: null
     property var dashboard: null
     property var notifier: null
+    property string configPath: ""
     screen: modelData
     anchors {
         bottom: true
@@ -46,10 +47,18 @@ PanelWindow {
         }
     }
 
-    // ─── Center Group: Clock (Absolute Centering) ────────────────────
-    Clock {
+    // ─── Center Group: Clock + Recording Indicator ────────────────────
+    Row {
         anchors.centerIn: parent
-        dashboard: bar.dashboard
+        spacing: 12
+        
+        RecordingIndicator {
+            configPath: bar.configPath
+        }
+        
+        Clock {
+            dashboard: bar.dashboard
+        }
     }
 
     // ─── Right Group: System tray ─────────────────────────────────────

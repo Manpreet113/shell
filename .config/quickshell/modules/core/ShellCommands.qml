@@ -11,6 +11,7 @@ Item {
     property var controlCenter: null
     property var dashboard: null
     property var powerMenu: null
+    property var screenCapture: null
     property var notifications: null
 
     function toggleLauncher() {
@@ -98,6 +99,11 @@ Item {
     function showOsd(text) {
         if (notifications)
             notifications.showOsd(text)
+    }
+
+    function toggleScreenCapture() {
+        if (screenCapture)
+            screenCapture.toggle()
     }
 
     Process {

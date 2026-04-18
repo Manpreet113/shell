@@ -410,10 +410,24 @@ PanelWindow {
                         anchors.fill: parent; anchors.margins: 16
                         spacing: 10
 
-                        Text {
-                            text: "NOTIFICATIONS"
-                            color: Theme.fgMuted; font.family: Theme.monoFont
-                            font.pixelSize: 10; font.letterSpacing: 2; font.bold: true
+                        RowLayout {
+                            width: parent.width
+                            Text {
+                                text: "NOTIFICATIONS"
+                                color: Theme.fgMuted; font.family: Theme.monoFont
+                                font.pixelSize: 10; font.letterSpacing: 2; font.bold: true
+                            }
+                            Item { Layout.fillWidth: true }
+                            Text {
+                                text: "CLEAR ALL"
+                                color: Theme.primary; font.family: Theme.monoFont
+                                font.pixelSize: 10; font.letterSpacing: 1; font.bold: true
+                                visible: root.notifier && root.notifier.history.length > 0
+                                MouseArea {
+                                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.notifier.clearHistory()
+                                }
+                            }
                         }
 
                         Text {
@@ -429,23 +443,44 @@ PanelWindow {
                             model: root.notifier ? root.notifier.history : []
                             spacing: 10; clip: true
 
-                            delegate: Row {
+                            delegate: MouseArea {
+                                id: delegateRoot
                                 required property var modelData
                                 width: parent ? parent.width : 0
-                                spacing: 12
-                                Rectangle { width: 3; height: 28; radius: 1.5; color: Theme.primary; opacity: 0.5 }
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 2
-                                    Text {
-                                        text: modelData.title; color: Theme.fg
-                                        font.family: Theme.uiFont; font.pixelSize: 13; font.bold: true
-                                        elide: Text.ElideRight; width: 300
+                                height: 40
+                                hoverEnabled: true
+
+                                Row {
+                                    anchors.fill: parent
+                                    spacing: 12
+                                    Rectangle { width: 3; height: 28; radius: 1.5; color: Theme.primary; opacity: 0.5; anchors.verticalCenter: parent.verticalCenter }
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 2
+                                        Text {
+                                            text: modelData.title; color: Theme.fg
+                                            font.family: Theme.uiFont; font.pixelSize: 13; font.bold: true
+                                            elide: Text.ElideRight; width: 260
+                                        }
+                                        Text {
+                                            text: modelData.body; color: Theme.fgMuted
+                                            font.family: Theme.uiFont; font.pixelSize: 11
+                                            elide: Text.ElideRight; width: 260
+                                        }
                                     }
+                                    Item { width: 1; height: 1; Layout.fillWidth: true }
                                     Text {
-                                        text: modelData.body; color: Theme.fgMuted
-                                        font.family: Theme.uiFont; font.pixelSize: 11
-                                        elide: Text.ElideRight; width: 300
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "󰅖"
+                                        font.family: Theme.iconFont; font.pixelSize: 16
+                                        color: deleteMouse.containsMouse ? Theme.error : Theme.fgMuted
+                                        opacity: delegateRoot.containsMouse ? 1 : 0
+                                        Behavior on opacity { NumberAnimation { duration: 150 } }
+                                        MouseArea {
+                                            id: deleteMouse
+                                            anchors.fill: parent; hoverEnabled: true
+                                            onClicked: root.notifier.deleteFromHistory(modelData.id)
+                                        }
                                     }
                                 }
                             }
