@@ -20,8 +20,14 @@ ShellRoot {
         Bar {
             screen: modelData
             controlCenter: controlCenter
+            dashboard: dashboard
             notifier: notifications
         }
+    }
+
+    Dashboard {
+        id: dashboard
+        notifier: notifications
     }
 
     ControlCenter {
@@ -52,6 +58,7 @@ ShellRoot {
         launcher: launcher
         wallpaperSelector: wallpaperSelector
         controlCenter: controlCenter
+        dashboard: dashboard
         powerMenu: powerMenu
         notifications: notifications
     }
@@ -68,6 +75,10 @@ ShellRoot {
 
         function openPanel(kind: string): void {
             shellCommands.openPanel(kind)
+        }
+
+        function toggleDashboard(): void {
+            shellCommands.toggleDashboard()
         }
 
         function togglePowerMenu(): void {

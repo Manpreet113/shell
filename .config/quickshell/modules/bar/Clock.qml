@@ -10,15 +10,28 @@ Column {
     id: root
     property string timeText: ""
     property string dateText: ""
+    property var dashboard: null
+    readonly property bool dashboardOpen: dashboard && dashboard.visible
     spacing: 0
 
     Rectangle {
+        id: pill
         implicitHeight: 32
-        implicitWidth: clockRow.implicitWidth + 24
+        implicitWidth: clockRow.implicitWidth + (hoverArea.containsMouse || root.dashboardOpen ? 40 : 24)
         radius: implicitHeight / 2
-        color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.86)
+        color: root.dashboardOpen 
+            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.95)
+            : hoverArea.containsMouse
+                ? Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.96)
+                : Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.86)
+        
         border.width: 1
-        border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.35)
+        border.color: root.dashboardOpen
+            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.4)
+            : Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.35)
+
+        Behavior on implicitWidth { NumberAnimation { duration: 400; easing.type: Easing.OutBack } }
+        Behavior on color { ColorAnimation { duration: 200 } }
 
         Row {
             id: clockRow
@@ -27,7 +40,7 @@ Column {
 
             Text {
                 text: root.timeText
-                color: Theme.fg
+                color: root.dashboardOpen ? Theme.primaryFg : Theme.fg
                 font.family: Theme.monoFont
                 font.pixelSize: 13
                 font.bold: true
@@ -35,10 +48,17 @@ Column {
 
             Text {
                 text: root.dateText
-                color: Theme.fgMuted
+                color: root.dashboardOpen ? Qt.rgba(Theme.primaryFg.r, Theme.primaryFg.g, Theme.primaryFg.b, 0.7) : Theme.fgMuted
                 font.family: Theme.monoFont
                 font.pixelSize: 11
             }
+        }
+
+        MouseArea {
+            id: hoverArea
+            anchors.fill: parent
+            hoverEnabled: true
+            onClicked: if (root.dashboard) root.dashboard.toggle()
         }
     }
 

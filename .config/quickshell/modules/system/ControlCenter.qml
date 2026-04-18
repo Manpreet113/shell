@@ -212,32 +212,74 @@ PanelWindow {
         }
     }
 
-    component StateChip: Rectangle {
-        property string chipText: ""
-        property bool chipActive: false
-        implicitHeight: 28
-        implicitWidth: chipLabel.implicitWidth + 18
-        radius: implicitHeight / 2
-        color: chipActive
-            ? Qt.rgba(Theme.primaryContainer.r, Theme.primaryContainer.g, Theme.primaryContainer.b, 0.9)
-            : Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.64)
-        border.width: 1
-        border.color: chipActive
-            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.4)
-            : Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.16)
+    component Tile: Rectangle {
+        property string icon: ""
+        property string label: ""
+        property string sublabel: ""
+        property bool active: false
+        signal clicked()
 
-        Text {
-            id: chipLabel
-            anchors.centerIn: parent
-            text: parent.chipText
-            color: parent.chipActive ? Theme.primary : Theme.fgMuted
-            font.family: Theme.monoFont
-            font.pixelSize: 10
+        Layout.fillWidth: true
+        implicitHeight: 64
+        radius: 16
+        color: active
+            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.9)
+            : Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.6)
+        border.width: 1
+        border.color: active
+            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.3)
+            : Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.12)
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 12
+
+            Rectangle {
+                implicitWidth: 36
+                implicitHeight: 36
+                radius: 18
+                color: parent.parent.active
+                    ? Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.2)
+                    : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.1)
+
+                Text {
+                    anchors.centerIn: parent
+                    text: parent.parent.parent.icon
+                    color: parent.parent.parent.active ? Theme.primaryFg : Theme.primary
+                    font.family: Theme.iconFont
+                    font.pixelSize: 18
+                }
+            }
+
+            ColumnLayout {
+                spacing: 0
+                Text {
+                    text: parent.parent.parent.label
+                    color: parent.parent.parent.active ? Theme.primaryFg : Theme.fg
+                    font.family: Theme.uiFont
+                    font.pixelSize: 13
+                    font.bold: true
+                }
+                Text {
+                    text: parent.parent.parent.sublabel
+                    color: parent.parent.parent.active ? Qt.rgba(Theme.primaryFg.r, Theme.primaryFg.g, Theme.primaryFg.b, 0.7) : Theme.fgMuted
+                    font.family: Theme.uiFont
+                    font.pixelSize: 10
+                    visible: text.length > 0
+                }
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: parent.clicked()
         }
     }
 
     component SectionCard: Rectangle {
         default property alias cardData: content.data
+        property alias spacing: content.spacing
         implicitHeight: content.implicitHeight + 24
         radius: 18
         color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.7)
@@ -311,7 +353,13 @@ PanelWindow {
     }
 
     Rectangle {
-        visible: root.visible
+        id: panelContainer
+        visible: opacity > 0
+        opacity: root.visible ? 1 : 0
+        scale: root.visible ? 1 : 0.95
+
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
         anchors {
             right: parent.right
             rightMargin: 18
@@ -319,11 +367,11 @@ PanelWindow {
             bottomMargin: Config.controlCenterBottomOffset
         }
         width: Config.controlCenterWidth
-        radius: 24
-        color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.97)
+        radius: 28
+        color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.98)
         border.width: 1
         border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.18)
-        implicitHeight: content.implicitHeight + 28
+        implicitHeight: content.implicitHeight + 32
 
         MouseArea { anchors.fill: parent }
 
@@ -331,311 +379,112 @@ PanelWindow {
             id: content
             anchors.fill: parent
             anchors.margins: 16
-            spacing: 12
+            spacing: 16
 
             Text {
-                text: root.panelType === "audio" ? "AUDIO" : root.panelType === "network" ? "NETWORK" : root.panelType === "power" ? "POWER" : "SYSTEM"
+                text: "CONTROL CENTER"
                 color: Theme.primary
                 font.family: Theme.monoFont
                 font.pixelSize: 11
                 font.letterSpacing: 3
+                Layout.alignment: Qt.AlignHCenter
             }
 
-            Text {
+            // TILE GRID
+            GridLayout {
+                columns: 2
                 Layout.fillWidth: true
-                text: root.contextLabel
-                color: Theme.fgMuted
-                font.family: Theme.uiFont
-                font.pixelSize: 12
-                wrapMode: Text.WordWrap
-            }
+                columnSpacing: 10
+                rowSpacing: 10
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                StateChip {
-                    chipText: root.panelType === "audio" ? root.audioLabel : root.panelType === "network" ? root.networkLabel : root.panelType === "power" ? root.batteryLabel : root.loadLabel
-                    chipActive: true
+                Tile {
+                    icon: root.networkOnline ? "󰖩" : "󰖪"
+                    label: "Wi-Fi"
+                    sublabel: root.wifiEnabled ? "Enabled" : "Disabled"
+                    active: root.networkOnline
+                    onClicked: root.runShell(root.wifiEnabled ? "nmcli radio wifi off" : "nmcli radio wifi on", root.wifiEnabled ? "Wi-Fi disabled" : "Wi-Fi enabled")
                 }
 
-                StateChip {
-                    visible: root.panelType === "system"
-                    chipText: root.memLabel
+                Tile {
+                    icon: root.audioMuted ? "󰝟" : "󰕾"
+                    label: "Audio"
+                    sublabel: root.audioMuted ? "Muted" : Math.round(root.volumePercent) + "%"
+                    active: !root.audioMuted
+                    onClicked: root.runShell("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle", "Audio toggled")
                 }
 
-                StateChip {
-                    visible: root.panelType === "network"
-                    chipText: root.wifiEnabled ? "WIFI ON" : "WIFI OFF"
-                    chipActive: root.wifiEnabled
+                Tile {
+                    icon: "󰃠"
+                    label: "Display"
+                    sublabel: Math.round(root.brightnessPercent) + "%"
+                    active: true
+                    onClicked: root.panelType = "power"
+                }
+
+                Tile {
+                    icon: "󰁹"
+                    label: "Battery"
+                    sublabel: root.batteryLabel.split(" ")[1] || ""
+                    active: root.hasBattery
+                    onClicked: root.panelType = "power"
                 }
             }
 
-            Loader {
-                Layout.fillWidth: true
-                sourceComponent: root.panelType === "audio"
-                    ? audioPanel
-                    : root.panelType === "network"
-                        ? networkPanel
-                        : root.panelType === "power"
-                            ? powerPanel
-                            : systemPanel
-            }
-        }
-    }
-
-    Component {
-        id: audioPanel
-
-        ColumnLayout {
-            spacing: 10
-
+            // SLIDERS
             SectionCard {
                 Layout.fillWidth: true
+                spacing: 14
 
-                Text {
-                    text: "Output"
-                    color: Theme.fg
-                    font.family: Theme.uiFont
-                    font.pixelSize: 14
-                    font.bold: true
+                RowLayout {
+                    spacing: 12
+                    Text { text: "󰕾"; font.family: Theme.iconFont; color: Theme.primary; font.pixelSize: 18 }
+                    ValueSlider {
+                        Layout.fillWidth: true
+                        value: root.volumePercent
+                        onMoved: root.setVolume(value)
+                    }
                 }
 
                 RowLayout {
-                    Layout.fillWidth: true
-
-                    Text {
-                        text: root.audioMuted ? "Muted" : Math.round(root.volumePercent) + "%"
-                        color: root.audioMuted ? Theme.error : Theme.primary
-                        font.family: Theme.monoFont
-                        font.pixelSize: 12
-                        font.bold: true
+                    spacing: 12
+                    Text { text: "󰃠"; font.family: Theme.iconFont; color: Theme.primary; font.pixelSize: 18 }
+                    ValueSlider {
+                        Layout.fillWidth: true
+                        value: root.brightnessPercent
+                        onMoved: root.setBrightness(value)
                     }
-
-                    Item { Layout.fillWidth: true }
-
-                    StateChip {
-                        chipText: root.audioMuted ? "MUTED" : "LIVE"
-                        chipActive: !root.audioMuted
-                    }
-                }
-
-                ValueSlider {
-                    Layout.fillWidth: true
-                    value: root.volumePercent
-                    onMoved: root.setVolume(value)
                 }
             }
 
+            // SYSTEM STATS
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 8
-
-                ActionButton {
+                spacing: 10
+                
+                Rectangle {
                     Layout.fillWidth: true
-                    buttonText: root.audioMuted ? "Unmute" : "Mute"
-                    onPressed: root.runShell("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle", "Audio toggled", "Audio", "Toggled mute state")
+                    height: 32
+                    radius: 16
+                    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.6)
+                    Text { anchors.centerIn: parent; text: root.loadLabel; font.family: Theme.monoFont; font.pixelSize: 10; color: Theme.fgMuted }
                 }
 
-                ActionButton {
+                Rectangle {
                     Layout.fillWidth: true
-                    buttonText: "Mixer"
-                    onPressed: root.runShell("pavucontrol", "", "Audio", "Opening mixer")
-                }
-            }
-        }
-    }
-
-    Component {
-        id: networkPanel
-
-        ColumnLayout {
-            spacing: 10
-
-            SectionCard {
-                Layout.fillWidth: true
-
-                Text {
-                    text: "Connection"
-                    color: Theme.fg
-                    font.family: Theme.uiFont
-                    font.pixelSize: 14
-                    font.bold: true
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: root.networkLabel
-                    color: root.networkOnline ? Theme.fg : Theme.fgMuted
-                    font.family: Theme.uiFont
-                    font.pixelSize: 13
-                    wrapMode: Text.WordWrap
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    StateChip {
-                        chipText: root.networkOnline ? "ONLINE" : "OFFLINE"
-                        chipActive: root.networkOnline
-                    }
-
-                    StateChip {
-                        chipText: root.wifiEnabled ? "RADIO ON" : "RADIO OFF"
-                        chipActive: root.wifiEnabled
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                ActionButton {
-                    Layout.fillWidth: true
-                    buttonText: root.wifiEnabled ? "Disable Wi-Fi" : "Enable Wi-Fi"
-                    onPressed: root.runShell(root.wifiEnabled ? "nmcli radio wifi off" : "nmcli radio wifi on", root.wifiEnabled ? "Wi-Fi disabled" : "Wi-Fi enabled", "Network", root.wifiEnabled ? "Disabled Wi-Fi" : "Enabled Wi-Fi")
-                }
-
-                ActionButton {
-                    Layout.fillWidth: true
-                    buttonText: "Settings"
-                    onPressed: root.runShell("nm-connection-editor", "", "Network", "Opening settings")
-                }
-            }
-        }
-    }
-
-    Component {
-        id: powerPanel
-
-        ColumnLayout {
-            spacing: 10
-
-            SectionCard {
-                Layout.fillWidth: true
-
-                Text {
-                    text: "Brightness"
-                    color: Theme.fg
-                    font.family: Theme.uiFont
-                    font.pixelSize: 14
-                    font.bold: true
-                }
-
-                Text {
-                    text: Math.round(root.brightnessPercent) + "%"
-                    color: Theme.primary
-                    font.family: Theme.monoFont
-                    font.pixelSize: 12
-                    font.bold: true
-                }
-
-                ValueSlider {
-                    Layout.fillWidth: true
-                    value: root.brightnessPercent
-                    onMoved: root.setBrightness(value)
-                }
-            }
-
-            SectionCard {
-                Layout.fillWidth: true
-                visible: root.hasBattery
-
-                Text {
-                    text: "Battery"
-                    color: Theme.fg
-                    font.family: Theme.uiFont
-                    font.pixelSize: 14
-                    font.bold: true
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: root.batteryLabel
-                    color: Theme.fgMuted
-                    font.family: Theme.uiFont
-                    font.pixelSize: 13
-                    wrapMode: Text.WordWrap
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                ActionButton {
-                    Layout.fillWidth: true
-                    buttonText: "Lock"
-                    onPressed: root.runShell("qs -p ~/.config/quickshell ipc call shell powerAction lock", "", "Session", "Locking screen")
-                }
-
-                ActionButton {
-                    Layout.fillWidth: true
-                    buttonText: "Suspend"
-                    onPressed: root.runShell("qs -p ~/.config/quickshell ipc call shell powerAction suspend", "", "Power", "Suspending system")
+                    height: 32
+                    radius: 16
+                    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.6)
+                    Text { anchors.centerIn: parent; text: root.memLabel; font.family: Theme.monoFont; font.pixelSize: 10; color: Theme.fgMuted }
                 }
             }
 
             ActionButton {
                 Layout.fillWidth: true
-                buttonText: "Open Power Menu"
+                buttonText: "Power Menu"
                 onPressed: {
                     root.closePanel()
                     if (root.powerMenu)
                         root.powerMenu.openMenu()
-                }
-            }
-        }
-    }
-
-    Component {
-        id: systemPanel
-
-        ColumnLayout {
-            spacing: 10
-
-            SectionCard {
-                Layout.fillWidth: true
-
-                Text {
-                    text: "System Load"
-                    color: Theme.fg
-                    font.family: Theme.uiFont
-                    font.pixelSize: 14
-                    font.bold: true
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    StateChip {
-                        chipText: root.loadLabel
-                        chipActive: true
-                    }
-
-                    StateChip {
-                        chipText: root.memLabel
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                ActionButton {
-                    Layout.fillWidth: true
-                    buttonText: "Task View"
-                    onPressed: root.runShell("kitty -e btop", "", "System", "Opening btop")
-                }
-
-                ActionButton {
-                    Layout.fillWidth: true
-                    buttonText: "Reload"
-                    onPressed: root.runShell("killall qs; qs -p ~/.config/quickshell --daemonize", "Shell reloaded", "Shell", "Reloading Quickshell")
                 }
             }
         }

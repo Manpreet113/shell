@@ -23,6 +23,7 @@ PanelWindow {
 
     property var allApps: []
     property var allEmojis: []
+    property var recentApps: []
     property string appBuffer: ""
     property string emojiBuffer: ""
     property int selectedIndex: 0
@@ -47,12 +48,36 @@ PanelWindow {
 
     readonly property var activeItems: {
         var query = queryText
+
+        // --- Calculator Mode ---
+        if (query.length > 0 && (query.startsWith("=") || (/^[0-9+\-*/().\s]+$/.test(query) && query.match(/[+\-*/]/)))) {
+            var expr = query.startsWith("=") ? query.substring(1).trim() : query.trim()
+            try {
+                // Basic safety check for eval
+                if (/^[0-9+\-*/().\s]+$/.test(expr)) {
+                    var result = eval(expr)
+                    if (typeof result === "number" && !isNaN(result)) {
+                        return [{
+                            type: "calc",
+                            name: "= " + result,
+                            subtitle: "Calculator: " + expr,
+                            searchKey: "",
+                            value: result.toString()
+                        }]
+                    }
+                }
+            } catch (e) {}
+        }
+
         var source = currentMode === "emoji" ? allEmojis
             : currentMode === "actions" ? actionItems
             : allApps
 
-        if (query.length === 0)
+        if (query.length === 0) {
+            if (currentMode === "apps" && recentApps.length > 0)
+                return recentApps.concat(source)
             return source
+        }
 
         return source.filter(item => {
             if (item.searchKey)
@@ -184,7 +209,21 @@ PanelWindow {
             return
 
         if (entry.type === "app") {
+            // Track recent apps
+            var updatedRecent = [entry].concat(root.recentApps.filter(a => a.name !== entry.name)).slice(0, 5)
+            root.recentApps = updatedRecent
+
             Hyprland.dispatch("exec " + entry.exec)
+            _close()
+            return
+        }
+
+        if (entry.type === "calc") {
+            copyProc.command = ["sh", "-c", "printf %s " + shellQuote(entry.value) + " | wl-copy"]
+            copyProc.running = true
+            if (notifier) {
+                notifier.showOsd("Result copied: " + entry.value)
+            }
             _close()
             return
         }

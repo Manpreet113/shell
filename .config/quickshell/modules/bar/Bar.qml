@@ -13,6 +13,7 @@ PanelWindow {
 
     required property var modelData // Provided by Variants
     property var controlCenter: null
+    property var dashboard: null
     property var notifier: null
     screen: modelData
     anchors {
@@ -48,6 +49,7 @@ PanelWindow {
     // ─── Center Group: Clock (Absolute Centering) ────────────────────
     Clock {
         anchors.centerIn: parent
+        dashboard: bar.dashboard
     }
 
     // ─── Right Group: System tray ─────────────────────────────────────

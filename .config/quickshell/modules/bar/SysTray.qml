@@ -87,7 +87,7 @@ RowLayout {
             "    Charging) st='CHG' ;; " +
             "    Full) st='FULL' ;; " +
             "    Not\\ charging) st='IDLE' ;; " +
-            "    *) st='DIS' ;; " +
+            "    *) st='' ;; " +
             "  esac; " +
             "  printf 'BAT %s%% %s\\n' \"$cap\" \"$st\"; " +
             "fi"
@@ -152,6 +152,19 @@ RowLayout {
     }
 
     // ─── Render ──────────────────────────────────────────────────────
+    StatusPill {
+        visible: root.notifier && root.notifier.history.length > 0
+        labelText: "󰂚  " + (root.notifier ? root.notifier.history.length : 0)
+        emphasized: true
+        interactive: true
+        onClicked: {
+            if (root.controlCenter) {
+                root.controlCenter.currentView = "notifications"
+                root.controlCenter.toggle("notifications", "Notifications")
+            }
+        }
+    }
+
     StatusPill {
         labelText: root.loadText
         muted: true

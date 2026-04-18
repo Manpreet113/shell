@@ -9,6 +9,7 @@ Item {
     property var launcher: null
     property var wallpaperSelector: null
     property var controlCenter: null
+    property var dashboard: null
     property var powerMenu: null
     property var notifications: null
 
@@ -20,6 +21,11 @@ Item {
     function toggleWallpaperSelector() {
         if (wallpaperSelector)
             wallpaperSelector.toggle()
+    }
+
+    function toggleDashboard() {
+        if (dashboard)
+            dashboard.toggle()
     }
 
     function openPanel(kind) {
