@@ -8,6 +8,7 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import "../theme"
 import "../core"
+import QtQuick.Effects
 
 PanelWindow {
     id: root
@@ -33,6 +34,8 @@ PanelWindow {
     property string mediaStatus: "Stopped"
     property real mediaPosition: 0
     property real mediaLength: 0
+
+    property string mediaArtUrl: ""
 
     readonly property var overlayScreen: ScreenUtil.focusedScreen()
     screen: overlayScreen
@@ -99,7 +102,8 @@ PanelWindow {
             "a=$(playerctl metadata artist 2>/dev/null||echo '');" +
             "p=$(playerctl position 2>/dev/null||echo 0);" +
             "l=$(playerctl metadata mpris:length 2>/dev/null|awk '{printf \"%.0f\",$1/1000000}'||echo 0);" +
-            "printf '%s|%s|%s|%s|%s\\n' \"$s\" \"$t\" \"$a\" \"$p\" \"$l\""
+            "art=$(playerctl metadata mpris:artUrl 2>/dev/null||echo '');" +
+            "printf '%s|%s|%s|%s|%s|%s\\n' \"$s\" \"$t\" \"$a\" \"$p\" \"$l\" \"$art\""
         ]
         stdout: SplitParser { onRead: data => mediaProc.buf += data }
         onRunningChanged: {
@@ -110,6 +114,7 @@ PanelWindow {
                 root.mediaArtist   = p[2] || ""
                 root.mediaPosition = p.length > 3 ? parseFloat(p[3]) : 0
                 root.mediaLength   = p.length > 4 ? parseFloat(p[4]) : 0
+                root.mediaArtUrl   = p.length > 5 ? p[5] : ""
                 buf = ""
             }
         }
@@ -332,6 +337,35 @@ PanelWindow {
                     color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.65)
                     border.width: 1
                     border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.1)
+                    clip: true
+
+                    // Blurred Background
+                    Image {
+                        id: bgImg
+                        anchors.fill: parent
+                        source: root.mediaArtUrl
+                        fillMode: Image.PreserveAspectCrop
+                        visible: false
+                    }
+
+                    MultiEffect {
+                        anchors.fill: parent
+                        source: bgImg
+                        blurEnabled: true
+                        blurMax: 32
+                        blur: 1.0
+                        opacity: 0.35
+                        visible: root.mediaArtUrl !== ""
+                        autoPaddingEnabled: false
+                    }
+
+                    // Dark Overlay
+                    Rectangle {
+                        anchors.fill: parent
+                        color: "black"
+                        opacity: root.mediaArtUrl !== "" ? 0.3 : 0
+                        radius: 20
+                    }
 
                     Column {
                         anchors.fill: parent; anchors.margins: 16
@@ -339,7 +373,8 @@ PanelWindow {
 
                         Text {
                             text: "NOW PLAYING"
-                            color: Theme.fgMuted; font.family: Theme.monoFont
+                            color: root.mediaArtUrl !== "" ? "white" : Theme.fgMuted; font.family: Theme.monoFont
+                            opacity: root.mediaArtUrl !== "" ? 0.8 : 1.0
                             font.pixelSize: 10; font.letterSpacing: 2; font.bold: true
                         }
 
@@ -347,19 +382,32 @@ PanelWindow {
                             width: parent.width; spacing: 14
                             Rectangle {
                                 width: 72; height: 72; radius: 14
-                                color: Theme.primaryContainer
-                                Text { anchors.centerIn: parent; text: "󰎆"; font.family: Theme.iconFont; font.pixelSize: 30; color: Theme.primary }
+                                color: root.mediaArtUrl !== "" ? "transparent" : Theme.primaryContainer
+                                border.width: root.mediaArtUrl !== "" ? 1 : 0
+                                border.color: Qt.rgba(255, 255, 255, 0.2)
+                                clip: true
+                                Image {
+                                    anchors.fill: parent
+                                    source: root.mediaArtUrl
+                                    fillMode: Image.PreserveAspectCrop
+                                    visible: root.mediaArtUrl !== ""
+                                }
+                                Text { 
+                                    anchors.centerIn: parent; text: "󰎆"; font.family: Theme.iconFont; font.pixelSize: 30; color: Theme.primary 
+                                    visible: root.mediaArtUrl === ""
+                                }
                             }
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
                                 spacing: 4
                                 Text {
-                                    text: root.mediaTitle; color: Theme.fg
+                                    text: root.mediaTitle; color: root.mediaArtUrl !== "" ? "white" : Theme.fg
                                     font.family: Theme.uiFont; font.pixelSize: 18; font.bold: true
                                     width: 240; elide: Text.ElideRight
                                 }
                                 Text {
-                                    text: root.mediaArtist; color: Theme.fgMuted
+                                    text: root.mediaArtist; color: root.mediaArtUrl !== "" ? "white" : Theme.fgMuted
+                                    opacity: root.mediaArtUrl !== "" ? 0.8 : 1.0
                                     font.family: Theme.uiFont; font.pixelSize: 13
                                     width: 240; elide: Text.ElideRight
                                 }
@@ -371,16 +419,16 @@ PanelWindow {
                             anchors.horizontalCenter: parent.horizontalCenter
                             spacing: 36
                             Text {
-                                text: "󰒮"; font.family: Theme.iconFont; font.pixelSize: 24; color: Theme.fg
+                                text: "󰒮"; font.family: Theme.iconFont; font.pixelSize: 24; color: root.mediaArtUrl !== "" ? "white" : Theme.fg
                                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runShell("playerctl previous") }
                             }
                             Text {
                                 text: root.mediaStatus === "Playing" ? "󰏤" : "󰐊"
-                                font.family: Theme.iconFont; font.pixelSize: 26; color: Theme.primary
+                                font.family: Theme.iconFont; font.pixelSize: 26; color: root.mediaArtUrl !== "" ? "white" : Theme.primary
                                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runShell("playerctl play-pause") }
                             }
                             Text {
-                                text: "󰒭"; font.family: Theme.iconFont; font.pixelSize: 24; color: Theme.fg
+                                text: "󰒭"; font.family: Theme.iconFont; font.pixelSize: 24; color: root.mediaArtUrl !== "" ? "white" : Theme.fg
                                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runShell("playerctl next") }
                             }
                         }
@@ -388,10 +436,10 @@ PanelWindow {
                         // Progress bar
                         Rectangle {
                             width: parent.width; height: 5; radius: 2.5
-                            color: Qt.rgba(Theme.fg.r, Theme.fg.g, Theme.fg.b, 0.08)
+                            color: root.mediaArtUrl !== "" ? Qt.rgba(255, 255, 255, 0.2) : Qt.rgba(Theme.fg.r, Theme.fg.g, Theme.fg.b, 0.08)
                             Rectangle {
                                 width: parent.width * (root.mediaLength > 0 ? Math.min(1, root.mediaPosition / root.mediaLength) : 0)
-                                height: parent.height; radius: parent.radius; color: Theme.primary
+                                height: parent.height; radius: parent.radius; color: root.mediaArtUrl !== "" ? "white" : Theme.primary
                             }
                         }
                     }

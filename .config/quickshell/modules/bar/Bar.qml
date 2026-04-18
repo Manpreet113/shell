@@ -52,6 +52,8 @@ PanelWindow {
         anchors.centerIn: parent
         spacing: 12
         
+        MediaPill {}
+
         RecordingIndicator {
             configPath: bar.configPath
         }
