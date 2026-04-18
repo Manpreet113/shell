@@ -15,3 +15,5 @@ pavucontrol
 nm-connection-editor
 inter-font          
 ttf-roboto-mono-nerd   
+gnome-keyring
+libsecret
