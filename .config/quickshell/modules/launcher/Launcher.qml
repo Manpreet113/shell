@@ -9,6 +9,7 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import "../theme"
+import "../core"
 
 PanelWindow {
     id: root
@@ -42,20 +43,7 @@ PanelWindow {
         return text.toLowerCase().trim()
     }
 
-    readonly property var actionItems: [
-        { type: "action", id: "wallpapers", name: "Pick Wallpaper", subtitle: "Open the wallpaper browser", keywords: "background theme" },
-        { type: "action", id: "emoji", name: "Emoji Picker", subtitle: "Switch the launcher into emoji mode", keywords: "emoji symbols smile" },
-        { type: "action", id: "audio", name: "Audio Controls", subtitle: "Open the audio control panel", keywords: "volume mute sound" },
-        { type: "action", id: "network", name: "Network Controls", subtitle: "Open the network control panel", keywords: "wifi ethernet internet" },
-        { type: "action", id: "power", name: "Power Controls", subtitle: "Open the power control panel", keywords: "battery brightness suspend" },
-        { type: "action", id: "clipboard", name: "Clipboard History", subtitle: "Open clipse in a terminal", keywords: "copy paste history" },
-        { type: "action", id: "files", name: "File Manager", subtitle: "Open Thunar", keywords: "files browse folder" },
-        { type: "action", id: "audio-settings", name: "Volume Mixer", subtitle: "Open pavucontrol", keywords: "pavucontrol audio mixer" },
-        { type: "action", id: "network-settings", name: "Network Settings", subtitle: "Open NetworkManager editor", keywords: "nmcli wifi settings" },
-        { type: "action", id: "lock", name: "Lock Screen", subtitle: "Lock the current session", keywords: "session secure" },
-        { type: "action", id: "power-menu", name: "Power Menu", subtitle: "Open lock, suspend, reboot, shutdown", keywords: "power menu suspend reboot shutdown" },
-        { type: "action", id: "reload", name: "Reload Shell", subtitle: "Restart Quickshell", keywords: "quickshell restart refresh" }
-    ]
+    readonly property var actionItems: ShellActions.actionItems
 
     readonly property var activeItems: {
         var query = queryText
@@ -86,29 +74,15 @@ PanelWindow {
             : "Type an app name"
 
     readonly property var overlayScreen: {
-        if (Quickshell.screens.length === 0)
-            return null
-
-        var focusedMonitor = Hyprland.focusedMonitor
-        if (focusedMonitor && focusedMonitor.name) {
-            for (var i = 0; i < Quickshell.screens.length; ++i) {
-                var shellScreen = Quickshell.screens[i]
-                if (shellScreen.name === focusedMonitor.name)
-                    return shellScreen
-            }
-        }
-
-        return Quickshell.screens[0]
+        return ScreenUtil.focusedScreen()
     }
 
     readonly property string listAppsScript: {
-        var url = Qt.resolvedUrl("../../scripts/list_apps.py").toString()
-        return url.startsWith("file://") ? url.substring(7) : url
+        return PathUtil.resolveFilePath("../../scripts/list_apps.py")
     }
 
     readonly property string listEmojisScript: {
-        var url = Qt.resolvedUrl("../../scripts/list_emojis.py").toString()
-        return url.startsWith("file://") ? url.substring(7) : url
+        return PathUtil.resolveFilePath("../../scripts/list_emojis.py")
     }
 
     screen: overlayScreen
@@ -208,58 +182,13 @@ PanelWindow {
             return
         }
 
-        switch (entry.id) {
-        case "wallpapers":
-            if (wallpaperSelector)
-                wallpaperSelector.toggle()
-            _close()
-            break
-        case "emoji":
-            setMode("emoji")
-            if (notifier)
-                notifier.showOsd("Emoji mode")
-            break
-        case "audio":
-            Hyprland.dispatch("exec qs -p ~/.config/quickshell ipc call shell openPanel audio")
-            _close()
-            break
-        case "network":
-            Hyprland.dispatch("exec qs -p ~/.config/quickshell ipc call shell openPanel network")
-            _close()
-            break
-        case "power":
-            Hyprland.dispatch("exec qs -p ~/.config/quickshell ipc call shell openPanel power")
-            _close()
-            break
-        case "clipboard":
-            Hyprland.dispatch("exec kitty --class clipse -e clipse")
-            _close()
-            break
-        case "files":
-            Hyprland.dispatch("exec thunar")
-            _close()
-            break
-        case "audio-settings":
-            Hyprland.dispatch("exec pavucontrol")
-            _close()
-            break
-        case "network-settings":
-            Hyprland.dispatch("exec nm-connection-editor")
-            _close()
-            break
-        case "lock":
-            Hyprland.dispatch("exec qs -p ~/.config/quickshell ipc call shell powerAction lock")
-            _close()
-            break
-        case "power-menu":
-            Hyprland.dispatch("exec qs -p ~/.config/quickshell ipc call shell togglePowerMenu")
-            _close()
-            break
-        case "reload":
-            Hyprland.dispatch("exec killall qs; qs -p ~/.config/quickshell --daemonize")
-            _close()
-            break
-        }
+        ShellActions.activate(entry, {
+            notifier: notifier,
+            wallpaperSelector: wallpaperSelector,
+            close: _close,
+            setMode: setMode,
+            dispatch: command => Hyprland.dispatch(command)
+        })
     }
 
     Process {
@@ -439,6 +368,7 @@ PanelWindow {
                                     root.setMode("apps")
                                 event.accepted = true
                             }
+
                         }
 
                         Keys.onReturnPressed: root.activateSelected()

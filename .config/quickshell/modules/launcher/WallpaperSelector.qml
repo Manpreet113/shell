@@ -10,6 +10,7 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import "../theme"
 import "../bar"
+import "../core"
 
 PanelWindow {
     id: root
@@ -96,31 +97,15 @@ PanelWindow {
     }
 
     readonly property var overlayScreen: {
-        if (Quickshell.screens.length === 0)
-            return null
-
-        var focusedMonitor = Hyprland.focusedMonitor
-        if (focusedMonitor && focusedMonitor.name) {
-            for (var i = 0; i < Quickshell.screens.length; ++i) {
-                var shellScreen = Quickshell.screens[i]
-                if (shellScreen.name === focusedMonitor.name)
-                    return shellScreen
-            }
-        }
-
-        return Quickshell.screens[0]
+        return ScreenUtil.focusedScreen()
     }
 
     readonly property string listScript: {
-        var url = Qt.resolvedUrl("../../scripts/list_wallpapers.py").toString()
-        if (url.startsWith("file://")) return url.substring(7)
-        return url
+        return PathUtil.resolveFilePath("../../scripts/list_wallpapers.py")
     }
 
     readonly property string applyScript: {
-        var url = Qt.resolvedUrl("../../scripts/wallpaper.sh").toString()
-        if (url.startsWith("file://")) return url.substring(7)
-        return url
+        return PathUtil.resolveFilePath("../../scripts/wallpaper.sh")
     }
 
     screen: overlayScreen

@@ -8,6 +8,7 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import "../theme"
+import "../core"
 
 PanelWindow {
     id: root
@@ -39,19 +40,7 @@ PanelWindow {
     property string memLabel: "RAM --"
 
     readonly property var overlayScreen: {
-        if (Quickshell.screens.length === 0)
-            return null
-
-        var focusedMonitor = Hyprland.focusedMonitor
-        if (focusedMonitor && focusedMonitor.name) {
-            for (var i = 0; i < Quickshell.screens.length; ++i) {
-                var shellScreen = Quickshell.screens[i]
-                if (shellScreen.name === focusedMonitor.name)
-                    return shellScreen
-            }
-        }
-
-        return Quickshell.screens[0]
+        return ScreenUtil.focusedScreen()
     }
 
     screen: overlayScreen

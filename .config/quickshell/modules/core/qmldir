@@ -1,0 +1,5 @@
+singleton PathUtil 1.0 PathUtil.qml
+singleton ScreenUtil 1.0 ScreenUtil.qml
+singleton ShellActions 1.0 ShellActions.qml
+ThemeLoader 1.0 ThemeLoader.qml
+ShellCommands 1.0 ShellCommands.qml
