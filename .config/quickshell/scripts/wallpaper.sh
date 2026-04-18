@@ -9,7 +9,7 @@
 #
 # What this does:
 #   1. Lets you pick or specify a wallpaper image
-#   2. Sets it with swww (animated transition)
+#   2. Sets it with awww (animated transition)
 #   3. Runs matugen to generate Material You colors from the image
 #   4. Writes ~/.config/shell/colors.json
 #   5. shell.qml's FileView detects the change and recolors everything live
@@ -48,10 +48,8 @@ fi
 echo "Setting wallpaper: $IMAGE"
 
 # ── Step 2: Set the wallpaper ─────────────────────────────────────────────────
-if command -v swww &>/dev/null; then
-    # Initialize swww daemon if not running
-    swww init 2>/dev/null || true
-    swww img "$IMAGE" \
+if command -v awww &>/dev/null; then
+    awww img "$IMAGE" \
         --transition-type  grow \
         --transition-pos   center \
         --transition-duration 1.2 \
