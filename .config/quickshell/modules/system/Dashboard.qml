@@ -441,40 +441,74 @@ PanelWindow {
                             width: parent.width
                             height: parent.height - 30
                             model: root.notifier ? root.notifier.history : []
-                            spacing: 10; clip: true
+                            spacing: 12; clip: true
 
-                            delegate: MouseArea {
+                            delegate: Rectangle {
                                 id: delegateRoot
                                 required property var modelData
                                 width: parent ? parent.width : 0
-                                height: 40
-                                hoverEnabled: true
+                                height: delegateLayout.implicitHeight + 20
+                                radius: 16
+                                color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, delegateMouse.containsMouse ? 0.8 : 0.4)
+                                border.width: 1
+                                border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, delegateMouse.containsMouse ? 0.3 : 0.1)
+                                
+                                Behavior on color { ColorAnimation { duration: 150 } }
+                                Behavior on border.color { ColorAnimation { duration: 150 } }
 
-                                Row {
+                                MouseArea {
+                                    id: delegateMouse
                                     anchors.fill: parent
+                                    hoverEnabled: true
+                                }
+
+                                RowLayout {
+                                    id: delegateLayout
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.margins: 10
                                     spacing: 12
-                                    Rectangle { width: 3; height: 28; radius: 1.5; color: Theme.primary; opacity: 0.5; anchors.verticalCenter: parent.verticalCenter }
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 2
+                                    
+                                    // Icon Container
+                                    Rectangle {
+                                        Layout.alignment: Qt.AlignTop
+                                        width: 36; height: 36; radius: 18
+                                        color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
+                                        border.width: 1; border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.3)
                                         Text {
-                                            text: modelData.title; color: Theme.fg
-                                            font.family: Theme.uiFont; font.pixelSize: 13; font.bold: true
-                                            elide: Text.ElideRight; width: 260
-                                        }
-                                        Text {
-                                            text: modelData.body; color: Theme.fgMuted
-                                            font.family: Theme.uiFont; font.pixelSize: 11
-                                            elide: Text.ElideRight; width: 260
+                                            anchors.centerIn: parent
+                                            text: (modelData.appName || "").toLowerCase().includes("discord") ? "󰙯" :
+                                                  (modelData.appName || "").toLowerCase().includes("capture") || (modelData.appName || "").toLowerCase().includes("recording") ? "󰄀" : "󰂚"
+                                            font.family: Theme.iconFont; font.pixelSize: 18; color: Theme.primary
                                         }
                                     }
-                                    Item { width: 1; height: 1; Layout.fillWidth: true }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.alignment: Qt.AlignTop
+                                        spacing: 2
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.title; color: Theme.fg
+                                            font.family: Theme.uiFont; font.pixelSize: 13; font.bold: true
+                                            elide: Text.ElideRight; maximumLineCount: 1
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            visible: modelData.body.length > 0
+                                            text: modelData.body; color: Theme.fgMuted
+                                            font.family: Theme.uiFont; font.pixelSize: 11
+                                            elide: Text.ElideRight; maximumLineCount: 2; wrapMode: Text.WordWrap
+                                        }
+                                    }
+
                                     Text {
-                                        anchors.verticalCenter: parent.verticalCenter
+                                        Layout.alignment: Qt.AlignVCenter
                                         text: "󰅖"
-                                        font.family: Theme.iconFont; font.pixelSize: 16
+                                        font.family: Theme.iconFont; font.pixelSize: 18
                                         color: deleteMouse.containsMouse ? Theme.error : Theme.fgMuted
-                                        opacity: delegateRoot.containsMouse ? 1 : 0
+                                        opacity: delegateMouse.containsMouse ? 1 : 0
                                         Behavior on opacity { NumberAnimation { duration: 150 } }
                                         MouseArea {
                                             id: deleteMouse
@@ -483,6 +517,14 @@ PanelWindow {
                                         }
                                     }
                                 }
+                            }
+                            
+                            remove: Transition {
+                                NumberAnimation { property: "opacity"; to: 0; duration: 250 }
+                                NumberAnimation { property: "scale"; to: 0.8; duration: 250; easing.type: Easing.InBack }
+                            }
+                            displaced: Transition {
+                                NumberAnimation { properties: "y"; duration: 300; easing.type: Easing.OutBack }
                             }
                         }
                     }

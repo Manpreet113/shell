@@ -22,15 +22,16 @@ Item {
 
     NotificationServer {
         onNotification: n => {
-            root.addNotification(n.summary, n.body)
+            root.addNotification(n)
         }
     }
 
-    function addNotification(title, body) {
+    function addNotification(n) {
         var entry = { 
             id: nextId++, 
-            title: title || "Notification", 
-            body: body || "", 
+            title: n.summary || "Notification", 
+            body: n.body || "", 
+            appName: n.appName || "",
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
         }
         notifications = [entry].concat(notifications).slice(0, 3)
@@ -38,7 +39,7 @@ Item {
         notificationTimer.restart()
     }
 
-    function notify(title, body) { addNotification(title, body) }
+    function notify(title, body) { addNotification({summary: title, body: body}) }
 
     function dismissPopup(id) {
         notifications = notifications.filter(n => n.id !== id)
@@ -96,7 +97,7 @@ Item {
         ListView {
             id: notificationList
             model: root.notifications
-            spacing: 10
+            spacing: 12
             width: Config.notificationWidth; height: 1000
             interactive: false; clip: false
 
@@ -104,37 +105,95 @@ Item {
                 id: notificationDelegate
                 required property var modelData
 
-                width: Config.notificationWidth; radius: 18
-                color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.96)
+                width: Config.notificationWidth; height: implicitHeight
+                radius: 20
+                color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.85)
                 border.width: 1
-                border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.18)
-                implicitHeight: content.implicitHeight + 24
+                border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.25)
+                implicitHeight: mainLayout.implicitHeight + 35
+                clip: true // to keep progress bar within rounded corners
+
+                scale: hoverArea.pressed ? 0.97 : 1.0
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
 
                 MouseArea {
+                    id: hoverArea
                     anchors.fill: parent
+                    hoverEnabled: true
                     onClicked: root.dismissPopup(modelData.id)
                 }
 
-                ColumnLayout {
-                    id: content
-                    anchors.fill: parent; anchors.margins: 14; spacing: 4
-                    Text {
-                        Layout.fillWidth: true; text: modelData.title
-                        color: Theme.fg; font.family: Theme.uiFont; font.pixelSize: 14; font.bold: true; wrapMode: Text.WordWrap
+                RowLayout {
+                    id: mainLayout
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.margins: 16
+                    spacing: 14
+                    
+                    // Icon Container
+                    Rectangle {
+                        Layout.alignment: Qt.AlignTop
+                        width: 44; height: 44; radius: 22
+                        color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
+                        border.width: 1; border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.3)
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.appName.toLowerCase().includes("discord") ? "󰙯" :
+                                  modelData.appName.toLowerCase().includes("capture") || modelData.appName.toLowerCase().includes("recording") ? "󰄀" : "󰂚"
+                            font.family: Theme.iconFont; font.pixelSize: 22; color: Theme.primary
+                        }
                     }
-                    Text {
-                        Layout.fillWidth: true; visible: modelData.body.length > 0; text: modelData.body
-                        color: Theme.fgMuted; font.family: Theme.uiFont; font.pixelSize: 12; wrapMode: Text.WordWrap
+                    
+                    // Text Content
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignTop
+                        spacing: 4
+                        
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.title
+                                color: Theme.fg; font.family: Theme.uiFont; font.pixelSize: 15; font.bold: true; wrapMode: Text.WordWrap
+                            }
+                            Text {
+                                text: "󰅖"
+                                font.family: Theme.iconFont; font.pixelSize: 16; color: Theme.fgMuted
+                                opacity: hoverArea.containsMouse ? 1.0 : 0.0
+                                Behavior on opacity { NumberAnimation { duration: 150 } }
+                            }
+                        }
+                        Text {
+                            Layout.fillWidth: true; visible: modelData.body.length > 0; text: modelData.body
+                            color: Theme.fgMuted; font.family: Theme.uiFont; font.pixelSize: 13; wrapMode: Text.WordWrap
+                        }
+                    }
+                }
+
+                // Progress Bar
+                Rectangle {
+                    anchors { bottom: parent.bottom; bottomMargin: 2; left: parent.left; leftMargin: 16 }
+                    height: 3
+                    radius: 1.5
+                    color: Theme.primary
+                    
+                    NumberAnimation on width {
+                        from: notificationDelegate.width - 32
+                        to: 0
+                        duration: 4200
+                        running: true
                     }
                 }
             }
 
             add: Transition {
-                NumberAnimation { property: "x"; from: Config.notificationWidth; duration: 400; easing.type: Easing.OutBack }
+                NumberAnimation { property: "x"; from: Config.notificationWidth + 20; duration: 400; easing.type: Easing.OutBack }
                 NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 300 }
             }
             remove: Transition {
-                NumberAnimation { property: "x"; to: Config.notificationWidth; duration: 300; easing.type: Easing.InBack }
+                NumberAnimation { property: "x"; to: Config.notificationWidth + 20; duration: 300; easing.type: Easing.InBack }
                 NumberAnimation { property: "opacity"; to: 0; duration: 250 }
             }
             displaced: Transition {
