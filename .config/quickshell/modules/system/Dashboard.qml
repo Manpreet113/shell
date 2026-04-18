@@ -348,6 +348,18 @@ PanelWindow {
                         visible: false
                     }
 
+                    Item {
+                        id: maskBg
+                        anchors.fill: parent
+                        visible:false
+                        layer.enabled: true
+                        Rectangle {
+                            anchors.fill: parent
+                            color: "black"
+                            radius: 20
+                        }
+                    }
+
                     MultiEffect {
                         anchors.fill: parent
                         source: bgImg
@@ -355,6 +367,8 @@ PanelWindow {
                         blurMax: 32
                         blur: 1.0
                         opacity: 0.35
+                        maskEnabled: true
+                        maskSource: maskBg
                         visible: root.mediaArtUrl !== ""
                         autoPaddingEnabled: false
                     }

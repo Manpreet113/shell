@@ -8,6 +8,7 @@ import Quickshell.Wayland
 import Quickshell.Services.Notifications
 import "../theme"
 import "../core"
+import QtQuick.Effects
 
 Item {
     id: root
@@ -16,9 +17,12 @@ Item {
     property var history: []       // All recent notifications
     property int nextId: 1
     property string osdText: ""
+    property int osdValue: 0
+    property string osdIcon: ""
+    property string osdMode: "text" // "text", "volume", "brightness"
     property bool osdVisible: false
 
-    readonly property var overlayScreen: ScreenUtil.focusedScreen()
+    readonly property var overlayScreen: ScreenUtil.focusedScreen() || Quickshell.screens[0]
 
     NotificationServer {
         onNotification: n => {
@@ -54,6 +58,24 @@ Item {
     }
 
     function showOsd(text) {
+        if (text.includes(":")) {
+            var parts = text.split(":")
+            if (parts[0] === "vol" || parts[0] === "br") {
+                osdMode = parts[0] === "vol" ? "volume" : "brightness"
+                osdValue = parseInt(parts[1])
+                if (osdMode === "volume") {
+                    osdIcon = osdValue === 0 ? "󰝟" : osdValue < 33 ? "󰕿" : osdValue < 66 ? "󰖀" : "󰕾"
+                } else {
+                    osdIcon = "󰃠"
+                }
+                osdVisible = true
+                osdTimer.restart()
+                return
+            }
+        }
+        
+        // Fallback to text mode
+        osdMode = "text"
         osdText = text
         osdVisible = true
         osdTimer.restart()
@@ -73,9 +95,9 @@ Item {
 
     Timer {
         id: osdTimer
-        interval: 1600
+        interval: 2500
         repeat: false
-        onTriggered: { root.osdVisible = false; root.osdText = "" }
+        onTriggered: { root.osdVisible = false }
     }
 
     // ── Popup Windows ─────────────────────────────────────────────────
@@ -204,31 +226,115 @@ Item {
 
     PanelWindow {
         id: osdWindow
-        visible: root.osdVisible
+        visible: true
         focusable: false
         WlrLayershell.layer: WlrLayer.Overlay
         exclusiveZone: -1
         color: "transparent"
         screen: root.overlayScreen
-        implicitWidth: osdLabel.implicitWidth + 34
-        implicitHeight: osdLabel.implicitHeight + 22
-        anchors { bottom: true }
-        margins { bottom: Config.osdBottomOffset }
+        
+        width: implicitWidth
+        height: implicitHeight
+        implicitWidth: root.osdMode === "text" ? osdLabel.implicitWidth + 40 : 48
+        implicitHeight: root.osdMode === "text" ? 48 : 240
+        
+        anchors { 
+            right: true
+            top: true
+        }
+        
+        margins { 
+            right: root.osdMode === "text" ? (root.overlayScreen ? root.overlayScreen.width/2 - width/2 : 100) : (root.osdVisible ? 24 : -100)
+            top: root.osdMode === "text" ? (root.overlayScreen ? root.overlayScreen.height - implicitHeight - Config.osdBottomOffset : 800) : (root.overlayScreen ? root.overlayScreen.height/2 - implicitHeight/2 : 300)
+        }
 
+        Behavior on margins.right { NumberAnimation { duration: 400; easing.type: Easing.OutBack } }
+
+        // Main Container
         Rectangle {
             id: osdContent
-            anchors.fill: parent; radius: 22
-            color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.96)
-            border.width: 1; border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.22)
-            opacity: root.osdVisible ? 1 : 0
-            scale:   root.osdVisible ? 1 : 0.8
-            Behavior on opacity { NumberAnimation { duration: 200 } }
-            Behavior on scale   { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
+            anchors.fill: parent
+            radius: 24
+            color: "transparent"
+            clip: true
 
-            Text {
-                id: osdLabel; anchors.centerIn: parent; text: root.osdText
-                color: Theme.fg; font.family: Theme.monoFont; font.pixelSize: 14; font.bold: true
+            // Glass Background (Only this is blurred)
+            Rectangle {
+                id: osdBg
+                anchors.fill: parent
+                radius: 24
+                color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.8)
+                border.width: 1
+                border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.15)
+                
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    blurEnabled: true
+                    blurMax: 32
+                    blur: 1.0
+                    maskEnabled: true
+                    maskSource: osdBg
+                }
             }
+
+            // Dark Overlay
+            Rectangle {
+                anchors.fill: parent
+                radius: 24
+                color: "black"
+                opacity: 0.1
+            }
+
+            // --- TEXT MODE ---
+            Text {
+                id: osdLabel
+                visible: root.osdMode === "text"
+                anchors.centerIn: parent
+                text: root.osdText
+                color: Theme.fg
+                font.family: Theme.uiFont
+                font.pixelSize: 14; font.bold: true
+            }
+
+            // --- BAR MODE (Volume/Brightness) ---
+            Column {
+                visible: root.osdMode !== "text"
+                anchors.fill: parent
+                anchors.margins: 12
+                spacing: 12
+
+                // Icon at the top
+                Text {
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    text: root.osdIcon
+                    font.family: Theme.iconFont
+                    font.pixelSize: 22
+                    color: Theme.primary
+                }
+
+                // Vertical Progress Bar
+                Rectangle {
+                    width: 12
+                    height: parent.height - 60
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    radius: 6
+                    color: Qt.rgba(Theme.fg.r, Theme.fg.g, Theme.fg.b, 0.1)
+                    
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        width: parent.width
+                        height: parent.height * (Math.max(0, Math.min(100, root.osdValue)) / 100)
+                        radius: 6
+                        color: Theme.primary
+                        
+                        Behavior on height { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                    }
+                }
+            }
+
+            opacity: root.osdVisible ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: 250 } }
         }
     }
 }

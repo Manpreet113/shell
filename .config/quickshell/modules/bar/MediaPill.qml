@@ -44,8 +44,19 @@ Rectangle {
         id: bgImg
         anchors.fill: parent
         source: root.mediaArtUrl
-        fillMode: Image.PreserveAspectCrop
         visible: false
+    }
+
+    Item {
+        id: maskBg
+        anchors.fill: parent
+        visible:false
+        layer.enabled: true
+        Rectangle {
+            anchors.fill: parent
+            color: "black"
+            radius: 16
+        }
     }
 
     MultiEffect {
@@ -55,6 +66,8 @@ Rectangle {
         blurMax: 16
         blur: 1.0
         opacity: 0.4
+        maskEnabled: true
+        maskSource: maskBg
         visible: root.mediaArtUrl !== ""
         autoPaddingEnabled: false // This prevents the blur from expanding outside the anchors
     }
@@ -121,11 +134,28 @@ Rectangle {
             Layout.alignment: Qt.AlignVCenter
 
             Image {
+                id: thumbImg
                 anchors.fill: parent
                 source: root.mediaArtUrl
                 fillMode: Image.PreserveAspectCrop
-                visible: root.mediaArtUrl !== ""
+                visible: false
             }
+            
+            Rectangle {
+                visible:false
+                id: maskThumb
+                layer.enabled: true
+                anchors.fill: parent
+                radius: 12
+            }
+
+            MultiEffect {
+                anchors.fill: parent
+                source: thumbImg
+                maskEnabled: true
+                maskSource: maskThumb
+                visible: root.mediaArtUrl !== ""
+            }            
 
             Text {
                 anchors.centerIn: parent

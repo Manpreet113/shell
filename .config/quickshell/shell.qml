@@ -65,6 +65,10 @@ ShellRoot {
         id: notifications
     }
 
+    OSDService {
+        notifications: notifications
+    }
+
     WallpaperSelector { id: wallpaperSelector }
 
     Launcher {
