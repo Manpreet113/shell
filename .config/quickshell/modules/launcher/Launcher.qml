@@ -55,6 +55,9 @@ PanelWindow {
             return source
 
         return source.filter(item => {
+            if (item.searchKey)
+                return item.searchKey.indexOf(query) !== -1
+
             var haystack = [item.name || "", item.subtitle || "", item.keywords || ""].join(" ").toLowerCase()
             return haystack.indexOf(query) !== -1
         })
@@ -103,8 +106,23 @@ PanelWindow {
         if (!searchField.text.startsWith(":") && !searchField.text.startsWith(">"))
             searchField.text = ""
         appLoader.running = true
-        emojiLoader.running = true
+        
+        if (currentMode === "emoji")
+            loadEmojis()
+
         searchField.forceActiveFocus()
+    }
+
+    function loadEmojis() {
+        if (allEmojis.length > 0 || emojiLoader.running)
+            return
+        emojiLoader.running = true
+    }
+
+    onCurrentModeChanged: {
+        if (currentMode === "emoji") {
+            loadEmojis()
+        }
     }
 
     function _close() {
@@ -204,7 +222,8 @@ PanelWindow {
                         name: item.name,
                         subtitle: item.exec,
                         keywords: item.exec,
-                        exec: item.exec
+                        exec: item.exec,
+                        searchKey: (item.name + " " + item.exec).toLowerCase()
                     }))
                     root.onQueryChanged()
                 } catch (e) {
@@ -223,13 +242,17 @@ PanelWindow {
             if (!running && root.emojiBuffer.length > 0) {
                 try {
                     var items = JSON.parse(root.emojiBuffer)
-                    root.allEmojis = items.map(item => ({
-                        type: "emoji",
-                        emoji: item.emoji,
-                        name: item.name,
-                        subtitle: item.keywords.join(", "),
-                        keywords: item.keywords.join(" ")
-                    }))
+                    root.allEmojis = items.map(item => {
+                        var kw = item.keywords.join(" ")
+                        return {
+                            type: "emoji",
+                            emoji: item.emoji,
+                            name: item.name,
+                            subtitle: item.keywords.join(", "),
+                            keywords: kw,
+                            searchKey: (item.name + " " + kw).toLowerCase()
+                        }
+                    })
                     root.onQueryChanged()
                 } catch (e) {
                     console.warn("[launcher] Failed to parse emoji list:", e)
