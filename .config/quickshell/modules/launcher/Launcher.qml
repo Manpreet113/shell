@@ -52,7 +52,8 @@ PanelWindow {
         { type: "action", id: "files", name: "File Manager", subtitle: "Open Thunar", keywords: "files browse folder" },
         { type: "action", id: "audio-settings", name: "Volume Mixer", subtitle: "Open pavucontrol", keywords: "pavucontrol audio mixer" },
         { type: "action", id: "network-settings", name: "Network Settings", subtitle: "Open NetworkManager editor", keywords: "nmcli wifi settings" },
-        { type: "action", id: "lock", name: "Lock Screen", subtitle: "Run hyprlock", keywords: "session secure" },
+        { type: "action", id: "lock", name: "Lock Screen", subtitle: "Lock the current session", keywords: "session secure" },
+        { type: "action", id: "power-menu", name: "Power Menu", subtitle: "Open lock, suspend, reboot, shutdown", keywords: "power menu suspend reboot shutdown" },
         { type: "action", id: "reload", name: "Reload Shell", subtitle: "Restart Quickshell", keywords: "quickshell restart refresh" }
     ]
 
@@ -247,7 +248,11 @@ PanelWindow {
             _close()
             break
         case "lock":
-            Hyprland.dispatch("exec hyprlock")
+            Hyprland.dispatch("exec qs -p ~/.config/quickshell ipc call shell powerAction lock")
+            _close()
+            break
+        case "power-menu":
+            Hyprland.dispatch("exec qs -p ~/.config/quickshell ipc call shell togglePowerMenu")
             _close()
             break
         case "reload":

@@ -81,6 +81,12 @@ ShellRoot {
     ControlCenter {
         id: controlCenter
         notifier: notifications
+        powerMenu: powerMenu
+    }
+
+    PowerMenu {
+        id: powerMenu
+        notifier: notifications
     }
 
     NotificationOverlay {
@@ -125,6 +131,44 @@ ShellRoot {
             controlCenter.toggle(kind, label)
         }
 
+        function togglePowerMenu(): void {
+            powerMenu.toggle()
+        }
+
+        function powerAction(action: string): void {
+            if (action === "lock") {
+                notifications.showOsd("Locking")
+                controlCenter.closePanel()
+                powerMenu.closeMenu()
+                powerActionProc.command = ["sh", "-c", "pidof hyprlock >/dev/null || hyprlock"]
+                powerActionProc.running = true
+            } else if (action === "suspend") {
+                notifications.notify("Power", "Suspending system")
+                controlCenter.closePanel()
+                powerMenu.closeMenu()
+                powerActionProc.command = ["sh", "-c", "systemctl suspend"]
+                powerActionProc.running = true
+            } else if (action === "logout") {
+                notifications.notify("Session", "Logging out")
+                controlCenter.closePanel()
+                powerMenu.closeMenu()
+                powerActionProc.command = ["sh", "-c", "loginctl terminate-user \"$USER\""]
+                powerActionProc.running = true
+            } else if (action === "reboot") {
+                notifications.notify("Power", "Rebooting system")
+                controlCenter.closePanel()
+                powerMenu.closeMenu()
+                powerActionProc.command = ["sh", "-c", "systemctl reboot"]
+                powerActionProc.running = true
+            } else if (action === "shutdown") {
+                notifications.notify("Power", "Shutting down system")
+                controlCenter.closePanel()
+                powerMenu.closeMenu()
+                powerActionProc.command = ["sh", "-c", "systemctl poweroff"]
+                powerActionProc.running = true
+            }
+        }
+
         function showNotification(title: string, body: string): void {
             notifications.notify(title, body)
         }
@@ -132,6 +176,10 @@ ShellRoot {
         function showOsd(text: string): void {
             notifications.showOsd(text)
         }
+    }
+
+    Process {
+        id: powerActionProc
     }
 
     Timer {

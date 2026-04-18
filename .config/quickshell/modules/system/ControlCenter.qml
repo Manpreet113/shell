@@ -21,6 +21,7 @@ PanelWindow {
     property string panelType: "audio"
     property string contextLabel: ""
     property var notifier: null
+    property var powerMenu: null
 
     property string audioLabel: "VOL --"
     property real volumePercent: 0
@@ -578,13 +579,23 @@ PanelWindow {
                 ActionButton {
                     Layout.fillWidth: true
                     buttonText: "Lock"
-                    onPressed: root.runShell("hyprlock", "", "Session", "Locking screen")
+                    onPressed: root.runShell("qs -p ~/.config/quickshell ipc call shell powerAction lock", "", "Session", "Locking screen")
                 }
 
                 ActionButton {
                     Layout.fillWidth: true
                     buttonText: "Suspend"
-                    onPressed: root.runShell("systemctl suspend", "", "Power", "Suspending system")
+                    onPressed: root.runShell("qs -p ~/.config/quickshell ipc call shell powerAction suspend", "", "Power", "Suspending system")
+                }
+            }
+
+            ActionButton {
+                Layout.fillWidth: true
+                buttonText: "Open Power Menu"
+                onPressed: {
+                    root.closePanel()
+                    if (root.powerMenu)
+                        root.powerMenu.openMenu()
                 }
             }
         }
