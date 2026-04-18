@@ -74,6 +74,12 @@ if command -v matugen &>/dev/null; then
     matugen image "$IMAGE" --source-color-index 0 --json hex > "$COLORS_FILE.tmp" && mv "$COLORS_FILE.tmp" "$COLORS_FILE"
     echo "Colors written to $COLORS_FILE"
     echo "The shell will reload its theme automatically."
+
+    # ── Step 3b: Generate kitty theme ────────────────────────────────────────
+    KITTY_SCRIPT="$SCRIPT_DIR/gen_kitty_theme.py"
+    if [ -f "$KITTY_SCRIPT" ]; then
+        python3 "$KITTY_SCRIPT" "$COLORS_FILE" "$HOME/.config/kitty/theme.conf"
+    fi
     
     # ── Step 4: Update Hyprland colors ───────────────────────────────────────
     if command -v hyprctl &>/dev/null && command -v jq &>/dev/null; then
