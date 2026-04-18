@@ -27,6 +27,9 @@ QtObject {
     property color primary:             "#c8b3fa"   // active workspace, highlights
     property color primaryFg:           "#1e0a38"   // text on primary bg (was onPrimary)
     property color primaryContainer:    "#2d1f50"   // subtle accent background
+    property color secondaryContainer:  "#212121"
+    
+    readonly property string iconFont: "Symbols Nerd Font, sans-serif"
 
     // ─── Convenience ─────────────────────────────────────────────────
     // Fonts — change here to restyle the entire shell
