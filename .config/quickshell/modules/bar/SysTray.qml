@@ -12,6 +12,8 @@ import "../theme"
 RowLayout {
     id: root
     spacing: 6
+    property var controlCenter: null
+    property var notifier: null
 
     // ─── Volume ──────────────────────────────────────────────────────
     property string volText: "VOL --"
@@ -32,7 +34,7 @@ RowLayout {
     }
 
     Timer {
-        interval: 1500; running: true; repeat: true
+        interval: 300; running: true; repeat: true
         triggeredOnStart: true
         onTriggered: { if (!volProc.running) volProc.running = true }
     }
@@ -64,7 +66,7 @@ RowLayout {
     }
 
     Timer {
-        interval: 15000; running: true; repeat: true
+        interval: 1200; running: true; repeat: true
         triggeredOnStart: true
         onTriggered: { if (!netProc.running) netProc.running = true }
     }
@@ -119,7 +121,7 @@ RowLayout {
     }
 
     Timer {
-        interval: 10000; running: true; repeat: true
+        interval: 1500; running: true; repeat: true
         triggeredOnStart: true
         onTriggered: { if (!loadProc.running) loadProc.running = true }
     }
@@ -138,13 +140,13 @@ RowLayout {
     }
 
     Timer {
-        interval: 10000; running: true; repeat: true
+        interval: 1500; running: true; repeat: true
         triggeredOnStart: true
         onTriggered: { if (!memProc.running) memProc.running = true }
     }
 
     Timer {
-        interval: 30000; running: true; repeat: true
+        interval: 2000; running: true; repeat: true
         triggeredOnStart: true
         onTriggered: { if (!batProc.running) batProc.running = true }
     }
@@ -153,22 +155,42 @@ RowLayout {
     StatusPill {
         labelText: root.loadText
         muted: true
+        interactive: true
+        onClicked: {
+            if (root.controlCenter)
+                root.controlCenter.toggle("system", root.loadText + "  " + root.memText)
+        }
     }
 
     StatusPill {
         labelText: root.memText
         muted: true
+        interactive: true
+        onClicked: {
+            if (root.controlCenter)
+                root.controlCenter.toggle("system", root.loadText + "  " + root.memText)
+        }
     }
 
     StatusPill {
         labelText: root.netText
         emphasized: root.netOnline
+        interactive: true
+        onClicked: {
+            if (root.controlCenter)
+                root.controlCenter.toggle("network", root.netText)
+        }
     }
 
     StatusPill {
         labelText: root.volText
         warning: root.volMuted
         muted: !root.volMuted
+        interactive: true
+        onClicked: {
+            if (root.controlCenter)
+                root.controlCenter.toggle("audio", root.volText)
+        }
     }
 
     StatusPill {
@@ -177,5 +199,10 @@ RowLayout {
         emphasized: root.batCharging
         warning: root.batWarning
         muted: !root.batCharging && !root.batWarning
+        interactive: true
+        onClicked: {
+            if (root.controlCenter)
+                root.controlCenter.toggle("power", root.batText)
+        }
     }
 }

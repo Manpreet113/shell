@@ -12,6 +12,8 @@ PanelWindow {
     id: bar
 
     required property var modelData // Provided by Variants
+    property var controlCenter: null
+    property var notifier: null
     screen: modelData
     anchors {
         bottom: true
@@ -57,6 +59,9 @@ PanelWindow {
         }
         spacing: 6
 
-        SysTray {}
+        SysTray {
+            controlCenter: bar.controlCenter
+            notifier: bar.notifier
+        }
     }
 }

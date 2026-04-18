@@ -8,6 +8,7 @@ import Quickshell.Io
 import "modules/theme"
 import "modules/bar"
 import "modules/launcher"
+import "modules/system"
 
 ShellRoot {
     id: root
@@ -72,7 +73,18 @@ ShellRoot {
         model: Quickshell.screens
         Bar {
             screen: modelData
+            controlCenter: controlCenter
+            notifier: notifications
         }
+    }
+
+    ControlCenter {
+        id: controlCenter
+        notifier: notifications
+    }
+
+    NotificationOverlay {
+        id: notifications
     }
 
     // ─── Application launcher ────────────────────────────────────────
@@ -81,7 +93,11 @@ ShellRoot {
 
     // ─── Application launcher ────────────────────────────────────────
     // Single instance, toggled via IPC or Super+Space keybind
-    Launcher { id: launcher }
+    Launcher {
+        id: launcher
+        notifier: notifications
+        wallpaperSelector: wallpaperSelector
+    }
 
 
     // ─── IPC handler ─────────────────────────────────────────────────
@@ -94,6 +110,27 @@ ShellRoot {
 
         function toggleWallpaperSelector(): void {
             wallpaperSelector.toggle()
+        }
+
+        function openPanel(kind: string): void {
+            var label = ""
+            if (kind === "audio")
+                label = "Audio controls"
+            else if (kind === "network")
+                label = "Network controls"
+            else if (kind === "power")
+                label = "Power controls"
+            else
+                label = "System controls"
+            controlCenter.toggle(kind, label)
+        }
+
+        function showNotification(title: string, body: string): void {
+            notifications.notify(title, body)
+        }
+
+        function showOsd(text: string): void {
+            notifications.showOsd(text)
         }
     }
 

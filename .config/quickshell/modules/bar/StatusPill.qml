@@ -11,6 +11,9 @@ Rectangle {
     property bool emphasized: false
     property bool warning: false
     property bool muted: false
+    property bool interactive: false
+
+    signal clicked()
 
     implicitHeight: 28
     implicitWidth: textItem.implicitWidth + 24
@@ -49,5 +52,13 @@ Rectangle {
         font.family: Theme.monoFont
         font.pixelSize: 12
         font.bold: emphasized || warning
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        enabled: root.interactive
+        hoverEnabled: true
+        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+        onClicked: root.clicked()
     }
 }
