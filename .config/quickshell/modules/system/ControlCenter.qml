@@ -19,42 +19,30 @@ PanelWindow {
     exclusiveZone: -1
     color: "transparent"
 
-    property string panelType: "audio"
-    property string contextLabel: ""
     property var notifier: null
     property var powerMenu: null
 
-    property string audioLabel: "VOL --"
     property real volumePercent: 0
     property bool audioMuted: false
-
-    property string networkLabel: "NET OFF"
     property bool wifiEnabled: false
     property bool networkOnline: false
-
-    property string batteryLabel: "BAT --"
+    property string wifiSsid: ""
     property real brightnessPercent: 0
     property bool hasBattery: false
-
+    property string batteryText: "--"
     property string loadLabel: "LOAD --"
     property string memLabel: "RAM --"
+    property bool nightLightOn: false
+    property bool dndOn: false
 
     readonly property var overlayScreen: ScreenUtil.focusedScreen()
-
     screen: overlayScreen
     anchors { top: true; right: true; left: true; bottom: true }
 
     function toggle(kind, label) {
-        if (visible && panelType === kind) {
-            visible = false
-            return
-        }
-        panelType = kind
-        contextLabel = label || ""
-        visible = true
-        refreshNow()
+        if (visible) { visible = false; return }
+        visible = true; refreshNow()
     }
-
     function closePanel() { visible = false }
 
     function refreshNow() {
@@ -62,24 +50,21 @@ PanelWindow {
         if (!networkProc.running) networkProc.running = true
         if (!powerProc.running) powerProc.running = true
         if (!systemProc.running) systemProc.running = true
+        if (!nightProc.running) nightProc.running = true
     }
 
-    function runShell(command, osdText, title, body) {
-        actionProc.command = ["sh", "-c", command]
-        actionProc.running = true
-        if (notifier && osdText) notifier.showOsd(osdText)
-        if (notifier && title) notifier.notify(title, body || "")
+    function runShell(cmd) {
+        actionProc.command = ["sh", "-c", cmd]; actionProc.running = true
         refreshNow()
     }
 
-    function setVolume(value) {
-        var r = Math.max(0, Math.min(100, Math.round(value)))
-        runShell("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + r + "%", "VOL " + r + "%", "Audio", "Set volume to " + r + "%")
+    function setVolume(v) {
+        var r = Math.max(0, Math.min(100, Math.round(v)))
+        runShell("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + r + "%")
     }
-
-    function setBrightness(value) {
-        var r = Math.max(1, Math.min(100, Math.round(value)))
-        runShell("brightnessctl set " + r + "%", "BRIGHT " + r + "%", "Power", "Set brightness to " + r + "%")
+    function setBrightness(v) {
+        var r = Math.max(1, Math.min(100, Math.round(v)))
+        runShell("brightnessctl set " + r + "%")
     }
 
     // ── Processes ─────────────────────────────────────────────────────
@@ -87,37 +72,25 @@ PanelWindow {
 
     Process {
         id: audioProc; property string buf: ""
-        command: ["sh", "-c",
-            "wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | " +
-            "awk '/MUTED/ {printf \"VOL MUTED|%d|1\\n\", $2 * 100; next} {printf \"VOL %d%%|%d|0\\n\", $2 * 100, $2 * 100}'"]
+        command: ["sh", "-c", "wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | awk '/MUTED/{printf \"%d|1\\n\",$2*100;next}{printf \"%d|0\\n\",$2*100}'"]
         stdout: SplitParser { onRead: data => audioProc.buf += data }
-        onRunningChanged: {
-            if (!running && buf.length > 0) {
-                var p = buf.trim().split("|")
-                root.audioLabel = p[0] || "VOL --"
-                root.volumePercent = p.length > 1 ? parseFloat(p[1]) : 0
-                root.audioMuted = p.length > 2 ? p[2] === "1" : false
-                buf = ""
-            }
-        }
+        onRunningChanged: { if (!running && buf.length > 0) { var p=buf.trim().split("|"); root.volumePercent=parseFloat(p[0])||0; root.audioMuted=p[1]==="1"; buf="" } }
     }
 
     Process {
         id: networkProc; property string buf: ""
         command: ["sh", "-c",
-            "wifi=$(nmcli radio wifi 2>/dev/null); " +
-            "conn=$(nmcli -t -f TYPE,STATE,CONNECTION device status 2>/dev/null | awk -F: '$2==\"connected\" {print $1\":\"$3; exit}'); " +
-            "if [ -z \"$conn\" ]; then printf 'NET OFF|%s|0\\n' \"$wifi\"; exit 0; fi; " +
-            "type=${conn%%:*}; name=${conn#*:}; " +
-            "case \"$type\" in wifi) label=\"WIFI $name\" ;; ethernet) label=\"ETH $name\" ;; *) label=\"NET $name\" ;; esac; " +
-            "printf '%s|%s|1\\n' \"$label\" \"$wifi\""]
+            "wifi=$(nmcli radio wifi 2>/dev/null);" +
+            "ssid=$(nmcli -t -f active,ssid dev wifi 2>/dev/null|grep '^yes'|cut -d: -f2);" +
+            "online=$(nmcli -t -f STATE general 2>/dev/null|grep -c connected);" +
+            "printf '%s|%s|%s\\n' \"$wifi\" \"$ssid\" \"$online\""]
         stdout: SplitParser { onRead: data => networkProc.buf += data }
         onRunningChanged: {
             if (!running && buf.length > 0) {
                 var p = buf.trim().split("|")
-                root.networkLabel = p[0] || "NET OFF"
-                root.wifiEnabled = p.length > 1 ? p[1] === "enabled" : false
-                root.networkOnline = p.length > 2 ? p[2] === "1" : false
+                root.wifiEnabled = p[0] === "enabled"
+                root.wifiSsid = p[1] || ""
+                root.networkOnline = (parseInt(p[2]) || 0) > 0
                 buf = ""
             }
         }
@@ -126,20 +99,20 @@ PanelWindow {
     Process {
         id: powerProc; property string buf: ""
         command: ["sh", "-c",
-            "cur=$(brightnessctl g 2>/dev/null); max=$(brightnessctl m 2>/dev/null); " +
-            "if [ -n \"$cur\" ] && [ -n \"$max\" ] && [ \"$max\" -gt 0 ]; then bright=$((cur * 100 / max)); else bright=0; fi; " +
-            "f=$(ls /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -1); " +
-            "if [ -f \"$f\" ]; then cap=$(cat \"$f\"); s=$(cat \"${f%/capacity}/status\"); " +
-            "case \"$s\" in Charging) st='CHG' ;; Full) st='FULL' ;; Not\\ charging) st='IDLE' ;; *) st='DIS' ;; esac; " +
-            "printf 'BAT %s%% %s|%s|1\\n' \"$cap\" \"$st\" \"$bright\"; " +
-            "else printf 'NO BAT|%s|0\\n' \"$bright\"; fi"]
+            "cur=$(brightnessctl g 2>/dev/null);max=$(brightnessctl m 2>/dev/null);" +
+            "[ -n \"$max\" ] && [ \"$max\" -gt 0 ] && bright=$((cur*100/max)) || bright=0;" +
+            "f=$(ls /sys/class/power_supply/BAT*/capacity 2>/dev/null|head -1);" +
+            "if [ -f \"$f\" ];then cap=$(cat \"$f\");s=$(cat \"${f%/capacity}/status\");" +
+            "case \"$s\" in Charging)st=CHG;;Full)st=FULL;;*)st=DIS;;esac;" +
+            "printf '%s|%s%% %s|1\\n' \"$bright\" \"$cap\" \"$st\";" +
+            "else printf '%s|--|0\\n' \"$bright\";fi"]
         stdout: SplitParser { onRead: data => powerProc.buf += data }
         onRunningChanged: {
             if (!running && buf.length > 0) {
                 var p = buf.trim().split("|")
-                root.batteryLabel = p[0] || "BAT --"
-                root.brightnessPercent = p.length > 1 ? parseFloat(p[1]) : 0
-                root.hasBattery = p.length > 2 ? p[2] === "1" : false
+                root.brightnessPercent = parseFloat(p[0]) || 0
+                root.batteryText = p[1] || "--"
+                root.hasBattery = p[2] === "1"
                 buf = ""
             }
         }
@@ -148,247 +121,265 @@ PanelWindow {
     Process {
         id: systemProc; property string buf: ""
         command: ["sh", "-c",
-            "load=$(cut -d' ' -f1 /proc/loadavg 2>/dev/null); cores=$(nproc 2>/dev/null); " +
-            "loadtext=$(awk -v l=\"$load\" -v c=\"$cores\" 'BEGIN { if (l == \"\" || c == \"\" || c == 0) print \"LOAD --\"; else printf \"LOAD %d%%\", (l / c) * 100 }'); " +
-            "memtext=$(free | awk '/Mem:/ {printf \"RAM %d%%\", ($3 / $2) * 100}'); " +
-            "printf '%s|%s\\n' \"$loadtext\" \"$memtext\""]
+            "load=$(cut -d' ' -f1 /proc/loadavg);cores=$(nproc);" +
+            "lt=$(awk -v l=\"$load\" -v c=\"$cores\" 'BEGIN{if(c>0)printf \"LOAD %d%%\",(l/c)*100;else print \"LOAD --\"}');" +
+            "mt=$(free|awk '/Mem:/{printf \"RAM %d%%\",($3/$2)*100}');" +
+            "printf '%s|%s\\n' \"$lt\" \"$mt\""]
         stdout: SplitParser { onRead: data => systemProc.buf += data }
-        onRunningChanged: {
-            if (!running && buf.length > 0) {
-                var p = buf.trim().split("|")
-                root.loadLabel = p[0] || "LOAD --"
-                root.memLabel = p.length > 1 ? p[1] : "RAM --"
-                buf = ""
-            }
-        }
+        onRunningChanged: { if (!running && buf.length > 0) { var p=buf.trim().split("|"); root.loadLabel=p[0]; root.memLabel=p[1]||"RAM --"; buf="" } }
     }
 
-    Timer { interval: 400; running: root.visible; repeat: true; triggeredOnStart: true
+    Process {
+        id: nightProc; property string buf: ""
+        command: ["sh", "-c", "pgrep -x wlsunset >/dev/null && echo 1 || echo 0"]
+        stdout: SplitParser { onRead: data => nightProc.buf += data }
+        onRunningChanged: { if (!running && buf.length > 0) { root.nightLightOn = buf.trim() === "1"; buf="" } }
+    }
+
+    Timer { interval: 500; running: root.visible; repeat: true; triggeredOnStart: true
         onTriggered: if (!audioProc.running) audioProc.running = true
     }
-    Timer { interval: 1000; running: root.visible; repeat: true; triggeredOnStart: true
+    Timer { interval: 2000; running: root.visible; repeat: true; triggeredOnStart: true
         onTriggered: {
             if (!networkProc.running) networkProc.running = true
             if (!powerProc.running) powerProc.running = true
             if (!systemProc.running) systemProc.running = true
+            if (!nightProc.running) nightProc.running = true
         }
     }
 
     // ── Custom slider ─────────────────────────────────────────────────
-    component ValueSlider: Slider {
-        id: sliderRoot
-        from: 0; to: 100; stepSize: 1
+    component CcSlider: Slider {
+        id: sr; from: 0; to: 100; stepSize: 1
         background: Rectangle {
-            x: sliderRoot.leftPadding
-            y: sliderRoot.topPadding + sliderRoot.availableHeight / 2 - height / 2
-            width: sliderRoot.availableWidth; height: 6; radius: 3
+            x: sr.leftPadding; y: sr.topPadding + sr.availableHeight/2 - height/2
+            width: sr.availableWidth; height: 6; radius: 3
             color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.9)
-            Rectangle {
-                width: sliderRoot.visualPosition * parent.width
-                height: parent.height; radius: parent.radius
-                color: Theme.primary
-            }
+            Rectangle { width: sr.visualPosition*parent.width; height: parent.height; radius: parent.radius; color: Theme.primary }
         }
         handle: Rectangle {
-            x: sliderRoot.leftPadding + sliderRoot.visualPosition * (sliderRoot.availableWidth - width)
-            y: sliderRoot.topPadding + sliderRoot.availableHeight / 2 - height / 2
-            implicitWidth: 18; implicitHeight: 18; radius: 9
-            color: Theme.fg
-            border.width: 2; border.color: Theme.primary
+            x: sr.leftPadding + sr.visualPosition*(sr.availableWidth-width)
+            y: sr.topPadding + sr.availableHeight/2 - height/2
+            implicitWidth: 16; implicitHeight: 16; radius: 8
+            color: Theme.fg; border.width: 2; border.color: Theme.primary
         }
     }
 
-    // ── Dismiss area ──────────────────────────────────────────────────
-    Rectangle {
-        anchors.fill: parent; color: "transparent"
-        visible: root.visible
+    // ── Dismiss ───────────────────────────────────────────────────────
+    Rectangle { anchors.fill: parent; color: "transparent"; visible: root.visible
         MouseArea { anchors.fill: parent; onClicked: root.closePanel() }
     }
 
-    // ── Panel container ───────────────────────────────────────────────
+    // ── Panel ─────────────────────────────────────────────────────────
     Rectangle {
         id: panelContainer
         visible: opacity > 0
         opacity: root.visible ? 1 : 0
         scale:   root.visible ? 1 : 0.94
-
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-        Behavior on scale   { NumberAnimation { duration: 300; easing.type: Easing.OutBack  } }
+        Behavior on scale   { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
 
-        anchors {
-            right: parent.right; rightMargin: 18
-            bottom: parent.bottom; bottomMargin: Config.controlCenterBottomOffset
-        }
+        anchors { right: parent.right; rightMargin: 14; bottom: parent.bottom; bottomMargin: Config.controlCenterBottomOffset }
         width: Config.controlCenterWidth
         radius: 24
-        color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.98)
-        border.width: 1
-        border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.18)
-
-        // Swallow clicks on the panel itself
+        color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.97)
+        border.width: 1; border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.15)
+        implicitHeight: cc.childrenRect.height + 28
         MouseArea { anchors.fill: parent }
 
-        // Use a simple Column with fixed pixel widths/heights
         Column {
-            id: content
-            anchors.fill: parent
-            anchors.margins: 16
-            spacing: 14
+            id: cc
+            anchors.left: parent.left; anchors.right: parent.right
+            anchors.top: parent.top; anchors.margins: 14
+            spacing: 12
 
-            // Header
+            // ── Header ────────────────────────────────────────────────
             Text {
-                text: "SETTINGS"
-                color: Theme.primary
-                font.family: Theme.monoFont
-                font.pixelSize: 10
-                font.letterSpacing: 4
-                font.bold: true
+                text: "SETTINGS"; color: Theme.primary
+                font.family: Theme.monoFont; font.pixelSize: 10; font.letterSpacing: 4; font.bold: true
                 anchors.horizontalCenter: parent.horizontalCenter
             }
 
-            // ── Quick Toggles ─────────────────────────────────────────
+            // ── Toggle grid ───────────────────────────────────────────
             Grid {
-                columns: 2; spacing: 10
-                width: parent.width
+                columns: 2; spacing: 8; width: parent.width
 
-                // Wi-Fi tile
+                // Wi-Fi
                 Rectangle {
-                    width: (parent.width - 10) / 2; height: 60; radius: 14
+                    id: wifiTile
+                    width: (parent.width - 8) / 2; height: 68; radius: 16
                     color: root.networkOnline
                         ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.85)
-                        : Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.65)
+                        : Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.6)
                     border.width: 1
                     border.color: root.networkOnline
-                        ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.3)
-                        : Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.1)
-                    Row {
-                        anchors.centerIn: parent; spacing: 10
-                        Text { text: root.networkOnline ? "󰖩" : "󰖪"; font.family: Theme.iconFont; font.pixelSize: 18; color: root.networkOnline ? Theme.primaryFg : Theme.fgMuted; anchors.verticalCenter: parent.verticalCenter }
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter; spacing: 1
-                            Text { text: "Wi-Fi"; font.family: Theme.uiFont; font.pixelSize: 12; font.bold: true; color: root.networkOnline ? Theme.primaryFg : Theme.fg }
-                            Text { text: root.wifiEnabled ? "On" : "Off"; font.family: Theme.uiFont; font.pixelSize: 9; color: root.networkOnline ? Qt.rgba(Theme.primaryFg.r, Theme.primaryFg.g, Theme.primaryFg.b, 0.7) : Theme.fgMuted }
-                        }
+                        ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.25)
+                        : Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.08)
+                    Behavior on color { ColorAnimation { duration: 200 } }
+                    Column {
+                        anchors.centerIn: parent; spacing: 4
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.networkOnline ? "󰖩" : "󰖪"; font.family: Theme.iconFont; font.pixelSize: 20; color: root.networkOnline ? Theme.primaryFg : Theme.fgMuted }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.wifiSsid || "Wi-Fi"; font.family: Theme.uiFont; font.pixelSize: 11; font.bold: true; color: root.networkOnline ? Theme.primaryFg : Theme.fg; elide: Text.ElideRight; width: wifiTile.width - 16 ; horizontalAlignment: Text.AlignHCenter }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.wifiEnabled ? (root.networkOnline ? "Connected" : "Disconnected") : "Off"; font.family: Theme.uiFont; font.pixelSize: 9; color: root.networkOnline ? Qt.rgba(Theme.primaryFg.r,Theme.primaryFg.g,Theme.primaryFg.b,0.7) : Theme.fgMuted }
                     }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runShell(root.wifiEnabled ? "nmcli radio wifi off" : "nmcli radio wifi on", root.wifiEnabled ? "Wi-Fi disabled" : "Wi-Fi enabled") }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runShell(root.wifiEnabled ? "nmcli radio wifi off" : "nmcli radio wifi on") }
                 }
 
-                // Audio tile
+                // Audio
                 Rectangle {
-                    width: (parent.width - 10) / 2; height: 60; radius: 14
+                    width: (parent.width - 8) / 2; height: 68; radius: 16
                     color: !root.audioMuted
                         ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.85)
-                        : Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.65)
+                        : Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.6)
                     border.width: 1
                     border.color: !root.audioMuted
-                        ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.3)
-                        : Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.1)
-                    Row {
-                        anchors.centerIn: parent; spacing: 10
-                        Text { text: root.audioMuted ? "󰝟" : "󰕾"; font.family: Theme.iconFont; font.pixelSize: 18; color: !root.audioMuted ? Theme.primaryFg : Theme.fgMuted; anchors.verticalCenter: parent.verticalCenter }
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter; spacing: 1
-                            Text { text: "Audio"; font.family: Theme.uiFont; font.pixelSize: 12; font.bold: true; color: !root.audioMuted ? Theme.primaryFg : Theme.fg }
-                            Text { text: root.audioMuted ? "Muted" : Math.round(root.volumePercent) + "%"; font.family: Theme.uiFont; font.pixelSize: 9; color: !root.audioMuted ? Qt.rgba(Theme.primaryFg.r, Theme.primaryFg.g, Theme.primaryFg.b, 0.7) : Theme.fgMuted }
-                        }
+                        ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.25)
+                        : Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.08)
+                    Behavior on color { ColorAnimation { duration: 200 } }
+                    Column {
+                        anchors.centerIn: parent; spacing: 4
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.audioMuted ? "󰝟" : "󰕾"; font.family: Theme.iconFont; font.pixelSize: 20; color: !root.audioMuted ? Theme.primaryFg : Theme.fgMuted }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Audio"; font.family: Theme.uiFont; font.pixelSize: 11; font.bold: true; color: !root.audioMuted ? Theme.primaryFg : Theme.fg }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.audioMuted ? "Muted" : Math.round(root.volumePercent) + "%"; font.family: Theme.uiFont; font.pixelSize: 9; color: !root.audioMuted ? Qt.rgba(Theme.primaryFg.r,Theme.primaryFg.g,Theme.primaryFg.b,0.7) : Theme.fgMuted }
                     }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runShell("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle", "Audio toggled") }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runShell("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle") }
                 }
 
-                // Display tile
+                // Night Light
                 Rectangle {
-                    width: (parent.width - 10) / 2; height: 60; radius: 14
-                    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.65)
-                    border.width: 1; border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.1)
-                    Row {
-                        anchors.centerIn: parent; spacing: 10
-                        Text { text: "󰃠"; font.family: Theme.iconFont; font.pixelSize: 18; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter; spacing: 1
-                            Text { text: "Display"; font.family: Theme.uiFont; font.pixelSize: 12; font.bold: true; color: Theme.fg }
-                            Text { text: Math.round(root.brightnessPercent) + "%"; font.family: Theme.uiFont; font.pixelSize: 9; color: Theme.fgMuted }
-                        }
+                    width: (parent.width - 8) / 2; height: 68; radius: 16
+                    color: root.nightLightOn
+                        ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.85)
+                        : Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.6)
+                    border.width: 1
+                    border.color: root.nightLightOn
+                        ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.25)
+                        : Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.08)
+                    Behavior on color { ColorAnimation { duration: 200 } }
+                    Column {
+                        anchors.centerIn: parent; spacing: 4
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰖔"; font.family: Theme.iconFont; font.pixelSize: 20; color: root.nightLightOn ? Theme.primaryFg : Theme.fgMuted }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Night Light"; font.family: Theme.uiFont; font.pixelSize: 11; font.bold: true; color: root.nightLightOn ? Theme.primaryFg : Theme.fg }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.nightLightOn ? "On" : "Off"; font.family: Theme.uiFont; font.pixelSize: 9; color: root.nightLightOn ? Qt.rgba(Theme.primaryFg.r,Theme.primaryFg.g,Theme.primaryFg.b,0.7) : Theme.fgMuted }
                     }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runShell(root.nightLightOn ? "pkill wlsunset" : "wlsunset -t 4000 -T 6500 &") }
                 }
 
-                // Battery tile
+                // Battery / DND
                 Rectangle {
-                    width: (parent.width - 10) / 2; height: 60; radius: 14
-                    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.65)
-                    border.width: 1; border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.1)
-                    Row {
-                        anchors.centerIn: parent; spacing: 10
-                        Text { text: "󰁹"; font.family: Theme.iconFont; font.pixelSize: 18; color: root.hasBattery ? Theme.primary : Theme.fgMuted; anchors.verticalCenter: parent.verticalCenter }
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter; spacing: 1
-                            Text { text: "Battery"; font.family: Theme.uiFont; font.pixelSize: 12; font.bold: true; color: Theme.fg }
-                            Text { text: root.batteryLabel.indexOf(" ") > 0 ? root.batteryLabel.split(" ").slice(1).join(" ") : "--"; font.family: Theme.uiFont; font.pixelSize: 9; color: Theme.fgMuted }
-                        }
+                    width: (parent.width - 8) / 2; height: 68; radius: 16
+                    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.6)
+                    border.width: 1; border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.08)
+                    Column {
+                        anchors.centerIn: parent; spacing: 4
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.hasBattery ? "󰁹" : "󰚥"; font.family: Theme.iconFont; font.pixelSize: 20; color: root.hasBattery ? Theme.primary : Theme.fgMuted }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.hasBattery ? "Battery" : "AC Power"; font.family: Theme.uiFont; font.pixelSize: 11; font.bold: true; color: Theme.fg }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.batteryText; font.family: Theme.uiFont; font.pixelSize: 9; color: Theme.fgMuted }
                     }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor }
                 }
             }
 
-            // ── Sliders ───────────────────────────────────────────────
+            // ── Volume slider ─────────────────────────────────────────
             Rectangle {
-                width: parent.width; height: sliderCol.height + 24
-                radius: 16
-                color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.6)
-                border.width: 1; border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.1)
+                width: parent.width; height: 42; radius: 14
+                color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.5)
+                border.width: 1; border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.06)
+                Row {
+                    anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 8
+                    Text { text: "󰕾"; font.family: Theme.iconFont; font.pixelSize: 15; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                    CcSlider { width: parent.width - 60; anchors.verticalCenter: parent.verticalCenter; value: root.volumePercent; onMoved: root.setVolume(value) }
+                    Text { text: Math.round(root.volumePercent) + "%"; font.family: Theme.monoFont; font.pixelSize: 10; color: Theme.fgMuted; anchors.verticalCenter: parent.verticalCenter; width: 28 }
+                }
+            }
 
-                Column {
-                    id: sliderCol
-                    anchors.left: parent.left; anchors.right: parent.right
-                    anchors.top: parent.top; anchors.margins: 12
-                    spacing: 14
+            // ── Brightness slider ─────────────────────────────────────
+            Rectangle {
+                width: parent.width; height: 42; radius: 14
+                color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.5)
+                border.width: 1; border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.06)
+                Row {
+                    anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 8
+                    Text { text: "󰃠"; font.family: Theme.iconFont; font.pixelSize: 15; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                    CcSlider { width: parent.width - 60; anchors.verticalCenter: parent.verticalCenter; value: root.brightnessPercent; onMoved: root.setBrightness(value) }
+                    Text { text: Math.round(root.brightnessPercent) + "%"; font.family: Theme.monoFont; font.pixelSize: 10; color: Theme.fgMuted; anchors.verticalCenter: parent.verticalCenter; width: 28 }
+                }
+            }
 
-                    Row {
-                        width: parent.width; spacing: 10
-                        Text { text: "󰕾"; font.family: Theme.iconFont; color: Theme.primary; font.pixelSize: 16; anchors.verticalCenter: parent.verticalCenter }
-                        ValueSlider { width: parent.width - 28; value: root.volumePercent; onMoved: root.setVolume(value) }
+            // ── Quick actions ─────────────────────────────────────────
+            Row {
+                width: parent.width; spacing: 8
+
+                // Screenshot
+                Rectangle {
+                    width: (parent.width - 16) / 3; height: 36; radius: 18
+                    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.5)
+                    border.width: 1; border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.06)
+                    Row { anchors.centerIn: parent; spacing: 6
+                        Text { text: "󰹑"; font.family: Theme.iconFont; font.pixelSize: 13; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                        Text { text: "Screen"; font.family: Theme.uiFont; font.pixelSize: 10; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
                     }
-                    Row {
-                        width: parent.width; spacing: 10
-                        Text { text: "󰃠"; font.family: Theme.iconFont; color: Theme.primary; font.pixelSize: 16; anchors.verticalCenter: parent.verticalCenter }
-                        ValueSlider { width: parent.width - 28; value: root.brightnessPercent; onMoved: root.setBrightness(value) }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: { root.closePanel(); root.runShell("sleep 0.2 && grim -g \"$(slurp)\" - | wl-copy") }
+                    }
+                }
+
+                // Screenshot full
+                Rectangle {
+                    width: (parent.width - 16) / 3; height: 36; radius: 18
+                    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.5)
+                    border.width: 1; border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.06)
+                    Row { anchors.centerIn: parent; spacing: 6
+                        Text { text: "󰍹"; font.family: Theme.iconFont; font.pixelSize: 13; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                        Text { text: "Full"; font.family: Theme.uiFont; font.pixelSize: 10; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
+                    }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: { root.closePanel(); root.runShell("sleep 0.2 && grim - | wl-copy") }
+                    }
+                }
+
+                // Wallpaper
+                Rectangle {
+                    width: (parent.width - 16) / 3; height: 36; radius: 18
+                    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.5)
+                    border.width: 1; border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.06)
+                    Row { anchors.centerIn: parent; spacing: 6
+                        Text { text: "󰸉"; font.family: Theme.iconFont; font.pixelSize: 13; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                        Text { text: "Walls"; font.family: Theme.uiFont; font.pixelSize: 10; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
+                    }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: { root.closePanel(); Hyprland.dispatch("exec qs ipc call shell toggleWallpaperSelector") }
                     }
                 }
             }
 
-            // ── System stats ──────────────────────────────────────────
+            // ── Stats ─────────────────────────────────────────────────
             Row {
-                width: parent.width; spacing: 10
+                width: parent.width; spacing: 8
                 Rectangle {
-                    width: (parent.width - 10) / 2; height: 30; radius: 15
-                    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.5)
+                    width: (parent.width - 8) / 2; height: 28; radius: 14
+                    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.4)
                     Text { anchors.centerIn: parent; text: root.loadLabel; font.family: Theme.monoFont; font.pixelSize: 10; color: Theme.fgMuted }
                 }
                 Rectangle {
-                    width: (parent.width - 10) / 2; height: 30; radius: 15
-                    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.5)
+                    width: (parent.width - 8) / 2; height: 28; radius: 14
+                    color: Qt.rgba(Theme.surfaceContainer.r, Theme.surfaceContainer.g, Theme.surfaceContainer.b, 0.4)
                     Text { anchors.centerIn: parent; text: root.memLabel; font.family: Theme.monoFont; font.pixelSize: 10; color: Theme.fgMuted }
                 }
             }
 
-            // ── Power button ──────────────────────────────────────────
+            // ── Power ─────────────────────────────────────────────────
             Rectangle {
-                width: parent.width; height: 38; radius: 19
-                color: Qt.rgba(Theme.primaryContainer.r, Theme.primaryContainer.g, Theme.primaryContainer.b, 0.5)
-                border.width: 1; border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
-                Row {
-                    anchors.centerIn: parent; spacing: 8
-                    Text { text: "󰐥"; font.family: Theme.iconFont; font.pixelSize: 14; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
-                    Text { text: "Power Menu"; font.family: Theme.uiFont; font.pixelSize: 13; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
+                width: parent.width; height: 36; radius: 18
+                color: Qt.rgba(Theme.primaryContainer.r, Theme.primaryContainer.g, Theme.primaryContainer.b, 0.45)
+                border.width: 1; border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.12)
+                Row { anchors.centerIn: parent; spacing: 8
+                    Text { text: "󰐥"; font.family: Theme.iconFont; font.pixelSize: 13; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                    Text { text: "Power Menu"; font.family: Theme.uiFont; font.pixelSize: 12; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
                 }
-                MouseArea {
-                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                     onClicked: { root.closePanel(); if (root.powerMenu) root.powerMenu.openMenu() }
                 }
             }
         }
-
-        // Dynamic height from content
-        implicitHeight: content.childrenRect.height + 32
     }
 }
