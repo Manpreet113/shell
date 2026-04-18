@@ -17,3 +17,4 @@ inter-font
 ttf-roboto-mono-nerd   
 gnome-keyring
 libsecret
+hyprpolkitagent
