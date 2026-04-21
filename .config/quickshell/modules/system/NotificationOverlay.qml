@@ -305,8 +305,7 @@ Item {
 
                 // Icon at the top
                 Text {
-                    width: parent.width
-                    horizontalAlignment: Text.AlignHCenter
+                    anchors.horizontalCenter: parent.horizontalCenter
                     text: root.osdIcon
                     font.family: Theme.iconFont
                     font.pixelSize: 22
